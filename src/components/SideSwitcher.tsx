@@ -14,6 +14,7 @@ export default function SideSwitcher({ activeSide, onSwitch }: SideSwitcherProps
   return (
     <div className="fixed top-[68px] left-1/2 -translate-x-1/2 z-30 md:top-5">
       <div
+        data-tour="side-switcher"
         className="flex items-center gap-1 p-1 rounded-2xl glass-heavy shadow-xl"
         style={{ boxShadow: '0 4px 30px rgba(0,0,0,0.15)' }}
       >
