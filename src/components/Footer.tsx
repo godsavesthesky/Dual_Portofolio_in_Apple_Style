@@ -27,8 +27,6 @@ const designLinks = [
 const archLinks = [
   { id: 'home', label: 'Home' },
   { id: 'works', label: 'Projects' },
-  { id: 'drawings', label: 'Drawings' },
-  { id: 'arch-videos', label: 'Videos' },
   { id: 'about', label: 'About' },
   { id: 'experience', label: 'Experience' },
 ];
