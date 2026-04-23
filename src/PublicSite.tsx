@@ -5,6 +5,7 @@ import Dock from './components/Dock';
 import Footer from './components/Footer';
 import SideSwitcher from './components/SideSwitcher';
 import ConnectModal from './components/ConnectModal';
+import TourGuide from './components/TourGuide';
 
 import Home from './sections/Home';
 import About from './sections/About';
@@ -124,6 +125,7 @@ export default function PublicSite() {
       />
 
       <ConnectModal isOpen={connectOpen} onClose={() => setConnectOpen(false)} />
+      <TourGuide />
     </div>
   );
 }
