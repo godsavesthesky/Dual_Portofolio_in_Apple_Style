@@ -50,6 +50,7 @@ export default function Dock({ activeSection, onNavigate, onConnectClick, theme,
             onClick={() => onNavigate(item.id)}
             className="dock-item relative group"
             aria-label={item.label}
+            data-tour={item.id === 'works' ? 'dock-works' : item.id === 'about' ? 'dock-about' : undefined}
           >
             <span className="dock-label text-[var(--text-primary)]">{item.label}</span>
             <div className={`dock-icon text-white ${item.color} ${activeSection === item.id ? 'ring-2 ring-white/30 ring-offset-1 ring-offset-transparent' : ''}`}>
@@ -61,7 +62,7 @@ export default function Dock({ activeSection, onNavigate, onConnectClick, theme,
 
         <div className="w-px h-10 bg-[var(--border)] mx-1 self-center" />
 
-        <button onClick={onConnectClick} className="dock-item relative group" aria-label="Connect">
+        <button onClick={onConnectClick} className="dock-item relative group" aria-label="Connect" data-tour="dock-connect">
           <span className="dock-label text-[var(--text-primary)]">Connect</span>
           <div className="dock-icon text-white bg-gradient-to-br from-[#0A84FF] to-[#005DC1]">
             <MessageCircle className="w-6 h-6" />
