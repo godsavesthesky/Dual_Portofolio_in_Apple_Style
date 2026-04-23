@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, User, Briefcase, MessageCircle, Sun, Moon, PenTool, Film, BookOpen, Building, Ruler } from 'lucide-react';
+import { Home, User, Briefcase, MessageCircle, Sun, Moon, PenTool, Film, BookOpen, Building } from 'lucide-react';
 
 interface DockProps {
   activeSection: string;
@@ -29,8 +29,6 @@ const designItems: DockItemData[] = [
 const archItems: DockItemData[] = [
   { id: 'home', label: 'Home', icon: <Home className="w-6 h-6" />, color: 'bg-gradient-to-br from-sky-400 to-blue-600' },
   { id: 'works', label: 'Projects', icon: <Building className="w-6 h-6" />, color: 'bg-gradient-to-br from-stone-400 to-stone-600' },
-  { id: 'drawings', label: 'Drawings', icon: <Ruler className="w-6 h-6" />, color: 'bg-gradient-to-br from-amber-400 to-orange-500' },
-  { id: 'arch-videos', label: 'Videos', icon: <Film className="w-6 h-6" />, color: 'bg-gradient-to-br from-violet-400 to-purple-600' },
   { id: 'about', label: 'About', icon: <User className="w-6 h-6" />, color: 'bg-gradient-to-br from-emerald-400 to-teal-600' },
   { id: 'experience', label: 'Experience', icon: <Briefcase className="w-6 h-6" />, color: 'bg-gradient-to-br from-cyan-400 to-blue-500' },
 ];
