@@ -17,9 +17,11 @@ import Zines from './sections/Zines';
 
 // Architecture side
 import ArchWorks from './sections/ArchWorks';
+import Drawings from './sections/Drawings';
+import ArchVideos from './sections/ArchVideos';
 
 const DESIGN_SECTIONS = ['home', 'works', 'videos', 'zines', 'about', 'experience'];
-const ARCH_SECTIONS = ['home', 'works', 'about', 'experience'];
+const ARCH_SECTIONS = ['home', 'works', 'drawings', 'arch-videos', 'about', 'experience'];
 
 export default function PublicSite() {
   const { theme, toggleTheme } = useTheme();
@@ -99,6 +101,8 @@ export default function PublicSite() {
           ) : (
             <>
               <ArchWorks />
+              <Drawings />
+              <ArchVideos />
             </>
           )}
 
