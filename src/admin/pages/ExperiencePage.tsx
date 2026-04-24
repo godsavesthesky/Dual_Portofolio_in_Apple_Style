@@ -7,10 +7,21 @@ interface Exp { id: string; role: string; company: string | null; period: string
 export default function ExperiencePage() {
   const [items, setItems] = useState<Exp[]>([]);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => { load(); }, []);
   async function load() { setLoading(true); const { data } = await supabase.from('experience').select('*').order('created_at', { ascending: false }); if (data) setItems(data as Exp[]); setLoading(false); }
-  async function add() { const { data } = await supabase.from('experience').insert({ role: 'New Role' }).select().single(); if (data) setItems(prev => [data as Exp, ...prev]); }
+  async function add() {
+    setAdding(true);
+    const { data, error } = await supabase.from('experience').insert({ role: 'New Role' }).select().single();
+    if (error) {
+      alert(`Gagal menambah: ${error.message}`);
+      console.error('[Experience] insert error:', error);
+    } else if (data) {
+      setItems(prev => [data as Exp, ...prev]);
+    }
+    setAdding(false);
+  }
   async function update(id: string, field: string, value: any) { setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i)); await supabase.from('experience').update({ [field]: value }).eq('id', id); }
   async function remove(id: string) { if (!confirm('Hapus?')) return; await supabase.from('experience').delete().eq('id', id); setItems(prev => prev.filter(i => i.id !== id)); }
 
@@ -23,7 +34,9 @@ export default function ExperiencePage() {
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">Experience</h2>
           <p className="text-xs text-[var(--text-secondary)] mt-1">Pengalaman kerja — bisa ditandai untuk sisi Design, Architecture, atau keduanya.</p>
         </div>
-        <button onClick={add} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: 'var(--accent)' }}><Plus className="w-4 h-4" /> Tambah</button>
+        <button onClick={add} disabled={adding} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--accent)' }}>
+          <Plus className="w-4 h-4" /> {adding ? 'Menambah…' : 'Tambah'}
+        </button>
       </div>
       <div className="space-y-6">
         {items.map(item => (
