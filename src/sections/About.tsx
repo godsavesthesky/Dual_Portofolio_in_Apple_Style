@@ -1,3 +1,4 @@
+import { Wrench, Heart } from 'lucide-react';
 import MacWindow from '../components/MacWindow';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { useProfile } from '../lib/useProfile';
@@ -9,11 +10,18 @@ export default function About() {
   const displayName = profile?.name || 'Your Name';
   const tagline = profile?.tagline || 'Graphic Designer · Illustrator · Building Designer';
   const bio = profile?.bio || 'Bio coming soon.';
-  const skills = profile?.skills ?? [];
   const photo = profile?.photo_url;
   const initial = displayName.trim().charAt(0).toUpperCase() || 'Y';
 
-  // Pecah bio jadi array paragraf berdasarkan double newline
+  // Skills — split jadi 2 kategori.
+  // Kalau kolom baru (software_skills / soft_skills) masih kosong,
+  // fallback ke kolom legacy "skills" biar data lama tetap muncul.
+  const softwareSkills = profile?.software_skills ?? [];
+  const softSkills = profile?.soft_skills ?? [];
+  const legacySkills = profile?.skills ?? [];
+  const useLegacy = softwareSkills.length === 0 && softSkills.length === 0 && legacySkills.length > 0;
+
+  // Pecah bio jadi paragraf
   const paragraphs = bio.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
 
   return (
@@ -27,7 +35,7 @@ export default function About() {
 
           <MacWindow title="about.md" className="max-w-3xl mx-auto">
             <div className="flex flex-col items-center gap-6">
-              {/* Avatar + Name + Tagline: tetap center */}
+              {/* Avatar + Name + Tagline */}
               <div className="flex flex-col items-center gap-6 text-center">
                 {photo ? (
                   <img src={photo} alt={displayName} className="w-24 h-24 rounded-full object-cover border-2 border-[var(--border)]" />
@@ -43,7 +51,7 @@ export default function About() {
                 </div>
               </div>
 
-              {/* Bio: justify + spacing antar paragraf */}
+              {/* Bio */}
               <div className="w-full max-w-xl">
                 {loading ? (
                   <p className="text-[var(--text-secondary)] leading-relaxed text-center">Loading…</p>
@@ -64,15 +72,33 @@ export default function About() {
                 )}
               </div>
 
-              {/* Skills: tetap center */}
-              {skills.length > 0 && (
-                <div className="pt-4 border-t border-[var(--border)] w-full max-w-xl">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-3 text-center">Skills & Tools</p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {skills.map(s => (
-                      <span key={s} className="px-3 py-1 rounded-full text-xs font-medium glass text-[var(--text-primary)]">{s}</span>
-                    ))}
-                  </div>
+              {/* Skills — dipisah jadi Software Tools & Soft Skills */}
+              {!loading && (softwareSkills.length > 0 || softSkills.length > 0 || useLegacy) && (
+                <div className="pt-6 border-t border-[var(--border)] w-full">
+                  {useLegacy ? (
+                    <SkillGroup
+                      icon={Wrench}
+                      title="Skills & Tools"
+                      skills={legacySkills}
+                    />
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {softwareSkills.length > 0 && (
+                        <SkillGroup
+                          icon={Wrench}
+                          title="Software Tools"
+                          skills={softwareSkills}
+                        />
+                      )}
+                      {softSkills.length > 0 && (
+                        <SkillGroup
+                          icon={Heart}
+                          title="Soft Skills"
+                          skills={softSkills}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -80,5 +106,38 @@ export default function About() {
         </div>
       </div>
     </section>
+  );
+}
+
+/* ─── Helper: satu grup skill ─── */
+
+function SkillGroup({
+  icon: Icon,
+  title,
+  skills,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  skills: string[];
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <Icon className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+        <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)]">
+          {title}
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {skills.map(s => (
+          <span
+            key={s}
+            className="px-3 py-1 rounded-full text-xs font-medium glass text-[var(--text-primary)]"
+          >
+            {s}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
