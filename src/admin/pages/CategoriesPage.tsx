@@ -10,11 +10,20 @@ import {
   PageHeader,
 } from '../ui';
 
+const CATEGORY_TYPES = [
+  { value: 'design_work', label: 'Design Work', emoji: '🎨' },
+  { value: 'arch_work', label: 'Architecture', emoji: '🏗️' },
+  { value: 'zine', label: 'Zine', emoji: '📖' },
+  { value: 'drawing', label: 'Drawing', emoji: '✏️' },
+] as const;
+
+type CategoryType = (typeof CATEGORY_TYPES)[number]['value'];
+
 export default function CategoriesPage() {
   const [items, setItems] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
-  const [type, setType] = useState<'competition' | 'organization'>('competition');
+  const [type, setType] = useState<CategoryType>('design_work');
   const [submitting, setSubmitting] = useState(false);
 
   const load = async () => {
@@ -48,34 +57,34 @@ export default function CategoriesPage() {
     load();
   };
 
-  const competitions = items.filter(i => i.type === 'competition');
-  const organizations = items.filter(i => i.type === 'organization');
-
   return (
     <>
       <PageHeader
         title="Categories"
-        description="Tags used to filter Competitions and Organizations."
+        description="Kategori untuk Design Works, Architecture, Zines, dan Drawings."
       />
 
       <div className="glass rounded-2xl p-5 mb-6">
         <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Add new</p>
-        <div className="grid sm:grid-cols-[1fr_160px_auto] gap-3 items-end">
+        <div className="grid sm:grid-cols-[1fr_200px_auto] gap-3 items-end">
           <Field label="Name">
             <TextInput
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Hackathon"
+              placeholder="e.g. Social Media Design"
             />
           </Field>
           <Field label="Type">
             <select
               value={type}
-              onChange={e => setType(e.target.value as 'competition' | 'organization')}
+              onChange={e => setType(e.target.value as CategoryType)}
               className="w-full px-3 py-2 rounded-lg glass text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/60"
             >
-              <option value="competition">Competition</option>
-              <option value="organization">Organization</option>
+              {CATEGORY_TYPES.map(ct => (
+                <option key={ct.value} value={ct.value}>
+                  {ct.emoji} {ct.label}
+                </option>
+              ))}
             </select>
           </Field>
           <PrimaryButton onClick={handleAdd} disabled={submitting || !name.trim()}>
@@ -95,16 +104,17 @@ export default function CategoriesPage() {
         <p className="text-sm text-[var(--text-secondary)]">Loading…</p>
       ) : (
         <div className="grid sm:grid-cols-2 gap-5">
-          <CategoryList
-            title="Competitions"
-            items={competitions}
-            onDelete={handleDelete}
-          />
-          <CategoryList
-            title="Organizations"
-            items={organizations}
-            onDelete={handleDelete}
-          />
+          {CATEGORY_TYPES.map(ct => {
+            const filtered = items.filter(i => i.type === ct.value);
+            return (
+              <CategoryList
+                key={ct.value}
+                title={`${ct.emoji} ${ct.label}`}
+                items={filtered}
+                onDelete={handleDelete}
+              />
+            );
+          })}
         </div>
       )}
     </>
