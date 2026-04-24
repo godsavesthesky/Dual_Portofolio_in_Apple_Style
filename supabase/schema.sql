@@ -130,6 +130,29 @@ alter table public.arch_videos enable row level security;
 alter table public.experience enable row level security;
 alter table public.cv_downloads enable row level security;
 
+-- Drop dulu supaya bisa re-run tanpa error duplicate
+drop policy if exists "Public read profile" on public.profile;
+drop policy if exists "Public read categories" on public.categories;
+drop policy if exists "Public read design_works" on public.design_works;
+drop policy if exists "Public read design_videos" on public.design_videos;
+drop policy if exists "Public read zines" on public.zines;
+drop policy if exists "Public read arch_works" on public.arch_works;
+drop policy if exists "Public read drawings" on public.drawings;
+drop policy if exists "Public read arch_videos" on public.arch_videos;
+drop policy if exists "Public read experience" on public.experience;
+drop policy if exists "Public insert cv_downloads" on public.cv_downloads;
+drop policy if exists "Admin all profile" on public.profile;
+drop policy if exists "Admin all categories" on public.categories;
+drop policy if exists "Admin all design_works" on public.design_works;
+drop policy if exists "Admin all design_videos" on public.design_videos;
+drop policy if exists "Admin all zines" on public.zines;
+drop policy if exists "Admin all arch_works" on public.arch_works;
+drop policy if exists "Admin all drawings" on public.drawings;
+drop policy if exists "Admin all arch_videos" on public.arch_videos;
+drop policy if exists "Admin all experience" on public.experience;
+drop policy if exists "Admin read cv_downloads" on public.cv_downloads;
+drop policy if exists "Admin delete cv_downloads" on public.cv_downloads;
+
 create policy "Public read profile" on public.profile for select using (true);
 create policy "Public read categories" on public.categories for select using (true);
 create policy "Public read design_works" on public.design_works for select using (true);
