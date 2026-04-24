@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, ArrowRight } from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { useProfile } from '../lib/useProfile';
@@ -15,14 +15,25 @@ export default function Home({ activeSide }: HomeProps) {
   const { profile } = useProfile();
   const [cvOpen, setCvOpen] = useState(false);
 
+  // Setelah redirect balik dari Google OAuth, cek ?cv= di URL
+  // kalau ada, langsung buka modal dan lanjut download
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cvParam = params.get('cv');
+    if (cvParam === 'design' || cvParam === 'arch') {
+      setCvOpen(true);
+      // Bersihkan query param dari URL tanpa reload
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', clean);
+    }
+  }, []);
+
   const displayName = profile?.name || 'Your Name';
   const photo = profile?.photo_url;
   const initial = displayName.trim().charAt(0).toUpperCase() || 'Y';
-
   const tagline = activeSide === 'design'
     ? 'Crafting visual stories through design, illustration & content creation'
     : 'Designing thoughtful spaces and architectural experiences';
-
   const badge = activeSide === 'design'
     ? 'Graphic Designer · Illustrator'
     : 'Building Designer · Visualizer';
@@ -35,7 +46,6 @@ export default function Home({ activeSide }: HomeProps) {
           style={{ background: 'radial-gradient(circle, var(--accent) 0%, transparent 70%)' }}
         />
       </div>
-
       <div className="section-container text-center relative z-10">
         <div ref={ref1} className="animate-on-scroll flex justify-center mb-8">
           {photo ? (
@@ -49,22 +59,18 @@ export default function Home({ activeSide }: HomeProps) {
             </div>
           )}
         </div>
-
         <div ref={ref2} className="animate-on-scroll">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass text-xs font-medium text-[var(--text-secondary)] mb-6">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             {badge}
           </div>
-
           <h1 className="text-5xl md:text-7xl font-bold text-[var(--text-primary)] mb-6 leading-tight tracking-tight">
             Hi, I'm <span style={{ color: 'var(--accent)' }}>{displayName}</span>
           </h1>
-
           <p className="text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed font-light">
             {tagline}
           </p>
         </div>
-
         <div ref={ref3} className="animate-on-scroll mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={() => document.getElementById('works')?.scrollIntoView({ behavior: 'smooth' })}
@@ -82,7 +88,12 @@ export default function Home({ activeSide }: HomeProps) {
         </div>
       </div>
 
-      <CVDownloadModal isOpen={cvOpen} onClose={() => setCvOpen(false)} cvUrl={profile?.cv_url ?? null} />
+      {/* cvType mengikuti activeSide — design atau arch sesuai halaman yang sedang dibuka */}
+      <CVDownloadModal
+        isOpen={cvOpen}
+        onClose={() => setCvOpen(false)}
+        cvType={activeSide}
+      />
     </section>
   );
 }
