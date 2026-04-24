@@ -13,6 +13,7 @@ import ZinesPage from './pages/ZinesPage';
 import ArchWorksPage from './pages/ArchWorksPage';
 import DrawingsPage from './pages/DrawingsPage';
 import ArchVideosPage from './pages/ArchVideosPage';
+import VideoProjectsPage from './pages/VideoProjectsPage';
 
 export default function AdminApp() {
   const { session, loading } = useAuth();
@@ -45,6 +46,7 @@ export default function AdminApp() {
         <Route path="cv-downloads" element={<CVDownloadsPage />} />
         <Route path="design-works" element={<DesignWorksPage />} />
         <Route path="design-videos" element={<DesignVideosPage />} />
+        <Route path="video-projects" element={<VideoProjectsPage />} />
         <Route path="zines" element={<ZinesPage />} />
         <Route path="arch-works" element={<ArchWorksPage />} />
         <Route path="drawings" element={<DrawingsPage />} />
