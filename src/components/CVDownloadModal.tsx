@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Download, Loader2, CheckCircle2, LogIn } from 'lucide-react';
+import { Download, Loader2, CheckCircle2 } from 'lucide-react';
 import Modal from './Modal';
 import { supabase } from '../lib/supabase';
 
 interface CVDownloadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cvType: 'design' | 'arch'; // mana yang mau didownload
+  cvType: 'design' | 'arch';
 }
 
 export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadModalProps) {
@@ -23,20 +23,17 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
     setStep('loading');
     setErrorMsg(null);
     try {
-      // Login Google — redirect kembali ke halaman ini setelah auth
+      // Pakai origin saja (tanpa path/query/hash) supaya OAuth state tidak rusak
+      const redirectTo = `${window.location.origin}/?cv=${cvType}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.href,
-          queryParams: {
-            // simpan cv_type di URL supaya setelah redirect tahu mau download yang mana
-            prompt: 'select_account',
-          },
+          redirectTo,
+          queryParams: { prompt: 'select_account' },
           scopes: 'email profile',
         },
       });
       if (error) throw error;
-      // Setelah redirect balik, user sudah login — komponen parent perlu handle ini
     } catch (err: any) {
       setErrorMsg(err?.message ?? 'Gagal login. Coba lagi.');
       setStep('error');
@@ -47,14 +44,12 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
     setStep('loading');
     setErrorMsg(null);
     try {
-      // Ambil session yang aktif
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setStep('login');
         return;
       }
 
-      // Ambil URL file CV dari tabel cv_files
       const { data: cvFile, error: fetchErr } = await supabase
         .from('cv_files')
         .select('file_url, label')
@@ -65,7 +60,6 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
         throw new Error('File CV belum tersedia. Coba lagi nanti.');
       }
 
-      // Catat download ke cv_downloads
       const user = session.user;
       await supabase.from('cv_downloads').insert({
         cv_type: cvType,
@@ -74,7 +68,6 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
         email: user.email,
       });
 
-      // Trigger download
       const a = document.createElement('a');
       a.href = cvFile.file_url;
       a.download = `CV_${cvType === 'design' ? 'Design' : 'Architecture'}.pdf`;
@@ -97,7 +90,6 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
     <Modal isOpen={isOpen} onClose={handleClose} title="download-cv" maxWidth="max-w-md">
       <div className="p-6">
 
-        {/* DONE */}
         {step === 'done' && (
           <div className="flex flex-col items-center text-center py-6 gap-4">
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -105,21 +97,14 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
             </div>
             <div>
               <h3 className="text-lg font-semibold text-[var(--text-primary)]">Download started!</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                {cvLabel} sedang didownload.
-              </p>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">{cvLabel} sedang didownload.</p>
             </div>
-            <button
-              onClick={handleClose}
-              className="mt-2 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90"
-              style={{ background: 'var(--accent)' }}
-            >
+            <button onClick={handleClose} className="mt-2 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ background: 'var(--accent)' }}>
               Close
             </button>
           </div>
         )}
 
-        {/* LOADING */}
         {step === 'loading' && (
           <div className="flex flex-col items-center py-10 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
@@ -127,28 +112,19 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
           </div>
         )}
 
-        {/* ERROR */}
         {step === 'error' && (
           <div className="flex flex-col items-center text-center py-6 gap-4">
             <p className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-lg">{errorMsg}</p>
-            <button
-              onClick={() => setStep('login')}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90"
-              style={{ background: 'var(--accent)' }}
-            >
+            <button onClick={() => setStep('login')} className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90" style={{ background: 'var(--accent)' }}>
               Coba lagi
             </button>
           </div>
         )}
 
-        {/* LOGIN PROMPT */}
         {step === 'login' && (
           <>
             <div className="flex items-center gap-3 mb-5">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
-                style={{ background: 'var(--accent)' }}
-              >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ background: 'var(--accent)' }}>
                 <Download className="w-5 h-5" />
               </div>
               <div>
@@ -161,7 +137,6 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
               onClick={handleGoogleLogin}
               className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-[var(--border)] glass text-sm font-medium text-[var(--text-primary)] hover:opacity-80 transition-opacity"
             >
-              {/* Google icon SVG */}
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
