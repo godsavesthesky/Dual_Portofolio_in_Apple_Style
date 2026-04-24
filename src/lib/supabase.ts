@@ -21,3 +21,4 @@ export const supabase = createClient(url ?? '', key ?? '', {
 // Storage bucket names (create these in Supabase Dashboard)
 export const BUCKET_PHOTOS = 'photos';
 export const BUCKET_DOCS = 'documents';
+export const BUCKET_VIDEOS = 'videos';
