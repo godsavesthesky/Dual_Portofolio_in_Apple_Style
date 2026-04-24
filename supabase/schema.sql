@@ -24,7 +24,7 @@ create table if not exists public.profile (
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  type text not null check (type in ('design_work', 'arch_work', 'zine')),
+  type text not null check (type in ('design_work', 'arch_work', 'zine', 'drawing')),
   created_at timestamptz not null default now()
 );
 
@@ -32,6 +32,7 @@ create table if not exists public.design_works (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   category_id uuid references public.categories(id) on delete set null,
+  sub_type text,
   year int,
   description text,
   photo_url text,
