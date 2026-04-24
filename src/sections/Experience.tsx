@@ -4,7 +4,11 @@ import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { supabase } from '../lib/supabase';
 import type { Experience } from '../lib/types';
 
-export default function ExperienceSection() {
+interface Props {
+  activeSide: 'design' | 'arch';
+}
+
+export default function ExperienceSection({ activeSide }: Props) {
   const ref = useScrollAnimation();
   const [items, setItems] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +24,14 @@ export default function ExperienceSection() {
     })();
   }, []);
 
+  // Filter: tampilkan item yang side-nya 'both' atau sesuai activeSide
+  const filtered = items.filter(exp => {
+    if (exp.side === 'both') return true;
+    if (activeSide === 'design' && exp.side === 'design') return true;
+    if (activeSide === 'arch' && exp.side === 'arch') return true;
+    return false;
+  });
+
   return (
     <section id="experience" className="min-h-[80vh] flex items-center">
       <div className="section-container w-full">
@@ -33,14 +45,14 @@ export default function ExperienceSection() {
 
           {loading ? (
             <p className="text-sm text-[var(--text-secondary)]">Loading…</p>
-          ) : items.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="glass rounded-2xl p-10 text-center">
               <Briefcase className="w-8 h-8 mx-auto text-[var(--text-secondary)] mb-2" />
               <p className="text-sm text-[var(--text-secondary)]">No experience entries yet.</p>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
-              {items.map(exp => (
+              {filtered.map(exp => (
                 <article key={exp.id} className="glass rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
                     <div>
