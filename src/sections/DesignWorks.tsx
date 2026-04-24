@@ -171,6 +171,75 @@ export default function DesignWorks() {
     [resolvedCategories]
   );
 
+  /* Render satu card — dipake di flat grid & grouped view */
+  const renderCard = useCallback((w: DesignWork) => {
+    const catName = w.category_id ? catById.get(w.category_id)?.name : undefined;
+    return (
+      <article
+        key={w.id}
+        className="glass rounded-2xl overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 flex flex-col cursor-pointer group"
+        onClick={() => setSelectedWork(w)}
+      >
+        {w.photo_url ? (
+          <div className="relative overflow-hidden">
+            <img
+              src={w.photo_url}
+              alt={w.title}
+              className="w-full h-44 object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+              <span className="text-white text-xs font-medium px-3 py-1.5 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
+                View Project
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="w-full h-44 flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))' }}
+          >
+            <PenTool className="w-10 h-10 text-blue-500/60" />
+          </div>
+        )}
+        <div className="p-5 flex flex-col gap-1.5 flex-1">
+          <h3 className="text-base font-semibold text-[var(--text-primary)] leading-snug">
+            {w.title}
+          </h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--text-secondary)]">
+            {catName && <span className="px-1.5 py-0.5 rounded glass text-[10px]">{catName}</span>}
+            {w.sub_type && <span className="px-1.5 py-0.5 rounded glass text-[10px]">{w.sub_type}</span>}
+            {w.year && <span>{w.year}</span>}
+          </div>
+          {w.description && (
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed line-clamp-2 mt-1">
+              {w.description}
+            </p>
+          )}
+        </div>
+      </article>
+    );
+  }, [catById]);
+
+  /* Grouped view cuma aktif pas All + no sub-filter + ada lebih dari 1 bucket */
+  const showGrouped = mainFilter === 'all' && subFilter === 'all' && resolvedCategories.length > 1;
+
+  /* Build groups: {bucket, works[]} — cuma dipake kalo showGrouped */
+  const groupedView = useMemo(() => {
+    if (!showGrouped) return null;
+    const groups = resolvedCategories.map(rc => {
+      const works = filtered.filter(w => w.category_id && rc.catIds.includes(w.category_id));
+      return { bucket: rc, works };
+    }).filter(g => g.works.length > 0);
+
+    // Works tanpa kategori yg valid — bucket "Other"
+    const orphans = filtered.filter(w => {
+      if (!w.category_id) return true;
+      return !resolvedCategories.some(rc => rc.catIds.includes(w.category_id!));
+    });
+
+    return { groups, orphans };
+  }, [showGrouped, resolvedCategories, filtered]);
+
   return (
     <section id="works" className="min-h-screen flex items-center">
       <div className="section-container w-full">
@@ -262,55 +331,53 @@ export default function DesignWorks() {
               <PenTool className="w-8 h-8 mx-auto text-[var(--text-secondary)] mb-2" />
               <p className="text-sm text-[var(--text-secondary)]">No works yet. Check back soon.</p>
             </div>
+          ) : showGrouped && groupedView ? (
+            /* ─── Grouped "All" view (Apple-style) ─── */
+            <div className="space-y-8">
+              {groupedView.groups.map(({ bucket, works }) => (
+                <div key={bucket.key}>
+                  {/* Group header: label kecil + counter — vibes System Settings macOS */}
+                  <div className="flex items-baseline justify-between mb-3 pb-2.5 border-b border-[var(--border)]">
+                    <h3 className="text-[13px] font-medium text-[var(--text-primary)] tracking-tight">
+                      {bucket.label}
+                    </h3>
+                    <span
+                      className="text-[11px] text-[var(--text-secondary)] opacity-70"
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {String(works.length).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {works.map(renderCard)}
+                  </div>
+                </div>
+              ))}
+
+              {/* Orphans (works tanpa kategori yg ter-resolve) */}
+              {groupedView.orphans.length > 0 && (
+                <div>
+                  <div className="flex items-baseline justify-between mb-3 pb-2.5 border-b border-[var(--border)]">
+                    <h3 className="text-[13px] font-medium text-[var(--text-primary)] tracking-tight">
+                      Other
+                    </h3>
+                    <span
+                      className="text-[11px] text-[var(--text-secondary)] opacity-70"
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {String(groupedView.orphans.length).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {groupedView.orphans.map(renderCard)}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
+            /* ─── Flat grid (kategori ter-filter / sub-filter aktif) ─── */
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filtered.map(w => {
-                const catName = w.category_id ? catById.get(w.category_id)?.name : undefined;
-                return (
-                  <article
-                    key={w.id}
-                    className="glass rounded-2xl overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 flex flex-col cursor-pointer group"
-                    onClick={() => setSelectedWork(w)}
-                  >
-                    {w.photo_url ? (
-                      <div className="relative overflow-hidden">
-                        <img
-                          src={w.photo_url}
-                          alt={w.title}
-                          className="w-full h-44 object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                          <span className="text-white text-xs font-medium px-3 py-1.5 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
-                            View Project
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="w-full h-44 flex items-center justify-center"
-                        style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))' }}
-                      >
-                        <PenTool className="w-10 h-10 text-blue-500/60" />
-                      </div>
-                    )}
-                    <div className="p-5 flex flex-col gap-1.5 flex-1">
-                      <h3 className="text-base font-semibold text-[var(--text-primary)] leading-snug">
-                        {w.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--text-secondary)]">
-                        {catName && <span className="px-1.5 py-0.5 rounded glass text-[10px]">{catName}</span>}
-                        {w.sub_type && <span className="px-1.5 py-0.5 rounded glass text-[10px]">{w.sub_type}</span>}
-                        {w.year && <span>{w.year}</span>}
-                      </div>
-                      {w.description && (
-                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed line-clamp-2 mt-1">
-                          {w.description}
-                        </p>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+              {filtered.map(renderCard)}
             </div>
           )}
         </div>
