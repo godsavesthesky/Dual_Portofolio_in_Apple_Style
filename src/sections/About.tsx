@@ -13,6 +13,9 @@ export default function About() {
   const photo = profile?.photo_url;
   const initial = displayName.trim().charAt(0).toUpperCase() || 'Y';
 
+  // Pecah bio jadi array paragraf berdasarkan double newline
+  const paragraphs = bio.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+
   return (
     <section id="about" className="min-h-screen flex items-center">
       <div className="section-container w-full">
@@ -23,27 +26,48 @@ export default function About() {
           <h2 className="text-4xl md:text-5xl font-bold text-[var(--text-primary)] mb-12 tracking-tight">Who I Am</h2>
 
           <MacWindow title="about.md" className="max-w-3xl mx-auto">
-            <div className="flex flex-col items-center gap-6 text-center">
-              {photo ? (
-                <img src={photo} alt={displayName} className="w-24 h-24 rounded-full object-cover border-2 border-[var(--border)]" />
-              ) : (
-                <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold text-white" style={{ background: 'linear-gradient(135deg, var(--accent), #00c6ff)' }}>
-                  {initial}
-                </div>
-              )}
+            <div className="flex flex-col items-center gap-6">
+              {/* Avatar + Name + Tagline: tetap center */}
+              <div className="flex flex-col items-center gap-6 text-center">
+                {photo ? (
+                  <img src={photo} alt={displayName} className="w-24 h-24 rounded-full object-cover border-2 border-[var(--border)]" />
+                ) : (
+                  <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold text-white" style={{ background: 'linear-gradient(135deg, var(--accent), #00c6ff)' }}>
+                    {initial}
+                  </div>
+                )}
 
-              <div>
-                <h3 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">{displayName}</h3>
-                <p className="text-[var(--text-secondary)] text-sm">{tagline}</p>
+                <div>
+                  <h3 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">{displayName}</h3>
+                  <p className="text-[var(--text-secondary)] text-sm">{tagline}</p>
+                </div>
               </div>
 
-              <p className="text-[var(--text-secondary)] leading-relaxed max-w-lg whitespace-pre-line">
-                {loading ? 'Loading…' : bio}
-              </p>
+              {/* Bio: justify + spacing antar paragraf */}
+              <div className="w-full max-w-xl">
+                {loading ? (
+                  <p className="text-[var(--text-secondary)] leading-relaxed text-center">Loading…</p>
+                ) : paragraphs.length > 0 ? (
+                  <div className="space-y-4">
+                    {paragraphs.map((p, i) => (
+                      <p
+                        key={i}
+                        className="text-[var(--text-secondary)] leading-relaxed text-[15px] text-justify"
+                        style={{ hyphens: 'auto', WebkitHyphens: 'auto' } as React.CSSProperties}
+                      >
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[var(--text-secondary)] leading-relaxed text-center">{bio}</p>
+                )}
+              </div>
 
+              {/* Skills: tetap center */}
               {skills.length > 0 && (
-                <div className="pt-4 border-t border-[var(--border)] w-full max-w-lg">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-3">Skills & Tools</p>
+                <div className="pt-4 border-t border-[var(--border)] w-full max-w-xl">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-3 text-center">Skills & Tools</p>
                   <div className="flex flex-wrap justify-center gap-2">
                     {skills.map(s => (
                       <span key={s} className="px-3 py-1 rounded-full text-xs font-medium glass text-[var(--text-primary)]">{s}</span>
