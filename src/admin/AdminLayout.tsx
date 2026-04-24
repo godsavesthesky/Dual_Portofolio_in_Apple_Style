@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Sun,
   Moon,
+  FolderOpen,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../hooks/useTheme';
@@ -25,6 +26,7 @@ const navGroups = [
       { to: '/admin/profile', label: 'Profile', icon: User },
       { to: '/admin/categories', label: 'Categories', icon: Tag },
       { to: '/admin/experience', label: 'Experience', icon: Briefcase },
+      { to: '/admin/video-projects', label: 'Video Projects', icon: FolderOpen },
       { to: '/admin/cv-downloads', label: 'CV Downloads', icon: Download },
     ],
   },
