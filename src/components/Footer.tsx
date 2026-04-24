@@ -15,6 +15,16 @@ function TikTokIcon() {
   );
 }
 
+/** Pastikan URL selalu punya https:// supaya tidak jadi relative path */
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
 const designLinks = [
   { id: 'home', label: 'Home' },
   { id: 'works', label: 'Works' },
@@ -38,15 +48,15 @@ export default function Footer({ onNavigate, onConnectClick, activeSide }: Foote
   const year = new Date().getFullYear();
   const links = activeSide === 'design' ? designLinks : archLinks;
 
-  const socials: { href: string; icon: React.ReactNode; label: string }[] = [];
+  const socials: { href: string; icon: React.ReactNode; label: string; isEmail: boolean }[] = [];
   if (profile?.linkedin)
-    socials.push({ href: profile.linkedin, icon: <Linkedin className="w-4 h-4" />, label: 'LinkedIn' });
+    socials.push({ href: normalizeUrl(profile.linkedin), icon: <Linkedin className="w-4 h-4" />, label: 'LinkedIn', isEmail: false });
   if (profile?.instagram)
-    socials.push({ href: profile.instagram, icon: <Instagram className="w-4 h-4" />, label: 'Instagram' });
+    socials.push({ href: normalizeUrl(profile.instagram), icon: <Instagram className="w-4 h-4" />, label: 'Instagram', isEmail: false });
   if (profile?.tiktok)
-    socials.push({ href: profile.tiktok, icon: <TikTokIcon />, label: 'TikTok' });
+    socials.push({ href: normalizeUrl(profile.tiktok), icon: <TikTokIcon />, label: 'TikTok', isEmail: false });
   if (profile?.email)
-    socials.push({ href: `mailto:${profile.email}`, icon: <Mail className="w-4 h-4" />, label: 'Email' });
+    socials.push({ href: `mailto:${profile.email}`, icon: <Mail className="w-4 h-4" />, label: 'Email', isEmail: true });
 
   const displayName = profile?.name || 'Your Name';
   const tagline = profile?.tagline || 'Graphic Designer · Illustrator · Building Designer';
@@ -64,8 +74,8 @@ export default function Footer({ onNavigate, onConnectClick, activeSide }: Foote
                   <a
                     key={s.label}
                     href={s.href}
-                    target={s.href.startsWith('mailto') ? undefined : '_blank'}
-                    rel="noopener noreferrer"
+                    target={s.isEmail ? undefined : '_blank'}
+                    rel={s.isEmail ? undefined : 'noopener noreferrer'}
                     className="w-8 h-8 rounded-lg glass flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--accent)] hover:scale-110 transition-all duration-200"
                     aria-label={s.label}
                   >
