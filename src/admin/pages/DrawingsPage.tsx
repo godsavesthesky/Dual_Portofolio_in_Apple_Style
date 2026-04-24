@@ -11,6 +11,7 @@ export default function DrawingsPage() {
   const [items, setItems] = useState<Drawing[]>([]);
   const [works, setWorks] = useState<Work[]>([]);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => { load(); }, []);
   async function load() {
@@ -23,7 +24,17 @@ export default function DrawingsPage() {
     if (aw) setWorks(aw as Work[]);
     setLoading(false);
   }
-  async function add() { const { data } = await supabase.from('drawings').insert({ title: 'New Drawing' }).select().single(); if (data) setItems(prev => [data as Drawing, ...prev]); }
+  async function add() {
+    setAdding(true);
+    const { data, error } = await supabase.from('drawings').insert({ title: 'New Drawing' }).select().single();
+    if (error) {
+      alert(`Gagal menambah: ${error.message}`);
+      console.error('[Drawings] insert error:', error);
+    } else if (data) {
+      setItems(prev => [data as Drawing, ...prev]);
+    }
+    setAdding(false);
+  }
   async function update(id: string, field: string, value: any) { setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i)); await supabase.from('drawings').update({ [field]: value }).eq('id', id); }
   async function remove(id: string) { if (!confirm('Hapus?')) return; await supabase.from('drawings').delete().eq('id', id); setItems(prev => prev.filter(i => i.id !== id)); }
 
@@ -36,7 +47,9 @@ export default function DrawingsPage() {
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">Gambar Kerja</h2>
           <p className="text-xs text-[var(--text-secondary)] mt-1">Denah, potongan, tampak, detail — linked ke project arsitektur.</p>
         </div>
-        <button onClick={add} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: 'var(--accent)' }}><Plus className="w-4 h-4" /> Tambah</button>
+        <button onClick={add} disabled={adding} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--accent)' }}>
+          <Plus className="w-4 h-4" /> {adding ? 'Menambah…' : 'Tambah'}
+        </button>
       </div>
       <div className="space-y-6">
         {items.map(item => (
