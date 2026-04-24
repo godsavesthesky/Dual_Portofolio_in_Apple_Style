@@ -14,6 +14,8 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCv, setUploadingCv] = useState(false);
   const [skillsRaw, setSkillsRaw] = useState('');
+  const [softwareSkillsRaw, setSoftwareSkillsRaw] = useState('');
+  const [softSkillsRaw, setSoftSkillsRaw] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -34,13 +36,15 @@ export default function ProfilePage() {
       }
 
       if (data) {
-        setProfile(data as Profile);
-        setSkillsRaw(((data as Profile).skills ?? []).join(', '));
+        const p = data as Profile;
+        setProfile(p);
+        setSkillsRaw((p.skills ?? []).join(', '));
+        setSoftwareSkillsRaw((p.software_skills ?? []).join(', '));
+        setSoftSkillsRaw((p.soft_skills ?? []).join(', '));
         setLoading(false);
         return;
       }
 
-      // Tidak ada row — insert default
       const { data: inserted, error: insertError } = await supabase
         .from('profile')
         .insert({ name: '', tagline: '', bio: '' })
@@ -52,13 +56,14 @@ export default function ProfilePage() {
       } else if (inserted) {
         setProfile(inserted as Profile);
         setSkillsRaw('');
+        setSoftwareSkillsRaw('');
+        setSoftSkillsRaw('');
       }
 
       setLoading(false);
     })();
   }, []);
 
-  // ── States ──────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] py-10">
@@ -74,6 +79,8 @@ export default function ProfilePage() {
         <p className="text-xs opacity-80">{loadError}</p>
         <p className="text-xs mt-3 text-[var(--text-secondary)]">
           Pastikan tabel <code>profile</code> sudah ada di Supabase dan RLS policy sudah benar.
+          Kalau baru upgrade schema, jalankan dulu ALTER TABLE buat kolom{' '}
+          <code>software_skills</code> dan <code>soft_skills</code>.
         </p>
       </div>
     );
@@ -87,7 +94,6 @@ export default function ProfilePage() {
     );
   }
 
-  // ── Helpers ─────────────────────────────────────────
   const update = <K extends keyof Profile>(key: K, value: Profile[K]) =>
     setProfile(p => (p ? { ...p, [key]: value } : p));
 
@@ -123,13 +129,15 @@ export default function ProfilePage() {
     }
   };
 
+  const parseCSV = (raw: string) =>
+    raw.split(',').map(s => s.trim()).filter(Boolean);
+
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
-    const skills = skillsRaw
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
+    const skills = parseCSV(skillsRaw);
+    const software_skills = parseCSV(softwareSkillsRaw);
+    const soft_skills = parseCSV(softSkillsRaw);
 
     const { error } = await supabase
       .from('profile')
@@ -144,6 +152,8 @@ export default function ProfilePage() {
         tiktok: profile.tiktok,
         email: profile.email,
         skills,
+        software_skills,
+        soft_skills,
         updated_at: new Date().toISOString(),
       })
       .eq('id', profile.id);
@@ -158,7 +168,6 @@ export default function ProfilePage() {
     setTimeout(() => setSaved(false), 2500);
   };
 
-  // ── UI ───────────────────────────────────────────────
   return (
     <>
       <PageHeader title="Profile" description="Manage your hero, bio, social links, and CV file." />
@@ -223,9 +232,52 @@ export default function ProfilePage() {
           <Field label="Bio">
             <TextArea rows={5} value={profile.bio ?? ''} onChange={e => update('bio', e.target.value)} placeholder="Tell your story…" />
           </Field>
-          <Field label="Skills (comma-separated)">
-            <TextInput value={skillsRaw} onChange={e => setSkillsRaw(e.target.value)} placeholder="React, TypeScript, Figma, Leadership" />
+        </div>
+
+        {/* Skills — split jadi 2 kategori */}
+        <div className="glass rounded-2xl p-6 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Skills</h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Pisahin pake koma. Kategori-kategori ini bakal tampil terpisah di halaman About.
+            </p>
+          </div>
+
+          <Field label="Software Tools (comma-separated)">
+            <TextInput
+              value={softwareSkillsRaw}
+              onChange={e => setSoftwareSkillsRaw(e.target.value)}
+              placeholder="Adobe Photoshop, Adobe Illustrator, Figma, AutoCAD, SketchUp, Procreate"
+            />
           </Field>
+
+          <Field label="Soft Skills (comma-separated)">
+            <TextInput
+              value={softSkillsRaw}
+              onChange={e => setSoftSkillsRaw(e.target.value)}
+              placeholder="Teamwork, Communication, Problem Solving, Time Management"
+            />
+          </Field>
+
+          {/* Legacy skills field — disembunyikan di UI tapi masih bisa dilihat kalau ada datanya */}
+          {skillsRaw && (
+            <details className="pt-2">
+              <summary className="text-[11px] text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)]">
+                Legacy skills (comma-separated)
+              </summary>
+              <div className="mt-2">
+                <TextInput
+                  value={skillsRaw}
+                  onChange={e => setSkillsRaw(e.target.value)}
+                  placeholder="(kosongkan kalau sudah pindah ke Software Tools / Soft Skills)"
+                />
+                <p className="text-[10px] text-[var(--text-secondary)] mt-1">
+                  Field ini dipakai dulu sebelum skills dipisah. Kalau Software Tools & Soft Skills
+                  di atas sudah diisi, field ini akan diabaikan di halaman About.
+                </p>
+              </div>
+            </details>
+          )}
         </div>
 
         {/* Socials */}
