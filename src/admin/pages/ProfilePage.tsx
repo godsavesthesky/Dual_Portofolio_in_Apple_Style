@@ -9,6 +9,7 @@ import { Field, TextInput, TextArea, PrimaryButton, PageHeader } from '../ui';
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingCv, setUploadingCv] = useState(false);
@@ -17,33 +18,76 @@ export default function ProfilePage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      setLoading(true);
+      setLoadError(null);
+
+      const { data, error } = await supabase
         .from('profile')
         .select('*')
         .limit(1)
         .maybeSingle();
+
+      if (error) {
+        setLoadError(error.message);
+        setLoading(false);
+        return;
+      }
+
       if (data) {
         setProfile(data as Profile);
         setSkillsRaw(((data as Profile).skills ?? []).join(', '));
-      } else {
-        // Insert empty row if none exists
-        const { data: inserted } = await supabase
-          .from('profile')
-          .insert({ name: '', tagline: '', bio: '' })
-          .select()
-          .single();
-        if (inserted) {
-          setProfile(inserted as Profile);
-        }
+        setLoading(false);
+        return;
       }
+
+      // Tidak ada row — insert default
+      const { data: inserted, error: insertError } = await supabase
+        .from('profile')
+        .insert({ name: '', tagline: '', bio: '' })
+        .select()
+        .single();
+
+      if (insertError) {
+        setLoadError(`Profile not found and could not be created: ${insertError.message}`);
+      } else if (inserted) {
+        setProfile(inserted as Profile);
+        setSkillsRaw('');
+      }
+
       setLoading(false);
     })();
   }, []);
 
-  if (loading || !profile) {
-    return <p className="text-sm text-[var(--text-secondary)]">Loading…</p>;
+  // ── States ──────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)] py-10">
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading profile…
+      </div>
+    );
   }
 
+  if (loadError) {
+    return (
+      <div className="glass rounded-2xl p-6 text-sm text-red-400">
+        <p className="font-semibold mb-1">Failed to load profile</p>
+        <p className="text-xs opacity-80">{loadError}</p>
+        <p className="text-xs mt-3 text-[var(--text-secondary)]">
+          Pastikan tabel <code>profile</code> sudah ada di Supabase dan RLS policy sudah benar.
+        </p>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="glass rounded-2xl p-6 text-sm text-[var(--text-secondary)]">
+        No profile found. Pastikan schema Supabase sudah di-run.
+      </div>
+    );
+  }
+
+  // ── Helpers ─────────────────────────────────────────
   const update = <K extends keyof Profile>(key: K, value: Profile[K]) =>
     setProfile(p => (p ? { ...p, [key]: value } : p));
 
@@ -56,7 +100,7 @@ export default function ProfilePage() {
       update('photo_url', url);
     } catch (err) {
       console.error(err);
-      alert('Upload failed');
+      alert('Upload failed. Pastikan storage bucket "photos" sudah dibuat di Supabase.');
     } finally {
       setUploadingPhoto(false);
       e.target.value = '';
@@ -72,7 +116,7 @@ export default function ProfilePage() {
       update('cv_url', url);
     } catch (err) {
       console.error(err);
-      alert('Upload failed');
+      alert('Upload failed. Pastikan storage bucket "documents" sudah dibuat di Supabase.');
     } finally {
       setUploadingCv(false);
       e.target.value = '';
@@ -114,6 +158,7 @@ export default function ProfilePage() {
     setTimeout(() => setSaved(false), 2500);
   };
 
+  // ── UI ───────────────────────────────────────────────
   return (
     <>
       <PageHeader title="Profile" description="Manage your hero, bio, social links, and CV file." />
@@ -134,18 +179,9 @@ export default function ProfilePage() {
                 <div className="w-20 h-20 rounded-full glass" />
               )}
               <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoUpload}
-                />
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                 <span className="inline-flex items-center gap-2 px-3 py-2 rounded-lg glass text-xs font-medium text-[var(--text-primary)] hover:opacity-80 transition-opacity">
-                  {uploadingPhoto ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="w-3.5 h-3.5" />
-                  )}
+                  {uploadingPhoto ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                   Upload photo
                 </span>
               </label>
@@ -157,12 +193,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
               <div className="flex-1 text-xs text-[var(--text-secondary)] truncate">
                 {profile.cv_url ? (
-                  <a
-                    href={profile.cv_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-[var(--accent)] underline"
-                  >
+                  <a href={profile.cv_url} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--accent)] underline">
                     {profile.cv_url.split('/').pop()}
                   </a>
                 ) : (
@@ -170,18 +201,9 @@ export default function ProfilePage() {
                 )}
               </div>
               <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={handleCvUpload}
-                />
+                <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleCvUpload} />
                 <span className="inline-flex items-center gap-2 px-3 py-2 rounded-lg glass text-xs font-medium text-[var(--text-primary)] hover:opacity-80 transition-opacity">
-                  {uploadingCv ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="w-3.5 h-3.5" />
-                  )}
+                  {uploadingCv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                   Upload CV
                 </span>
               </label>
@@ -193,33 +215,16 @@ export default function ProfilePage() {
         <div className="glass rounded-2xl p-6 space-y-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Basic info</h2>
           <Field label="Name">
-            <TextInput
-              value={profile.name ?? ''}
-              onChange={e => update('name', e.target.value)}
-              placeholder="Your full name"
-            />
+            <TextInput value={profile.name ?? ''} onChange={e => update('name', e.target.value)} placeholder="Your full name" />
           </Field>
           <Field label="Tagline">
-            <TextInput
-              value={profile.tagline ?? ''}
-              onChange={e => update('tagline', e.target.value)}
-              placeholder="Short tagline shown on hero"
-            />
+            <TextInput value={profile.tagline ?? ''} onChange={e => update('tagline', e.target.value)} placeholder="Short tagline shown on hero" />
           </Field>
           <Field label="Bio">
-            <TextArea
-              rows={5}
-              value={profile.bio ?? ''}
-              onChange={e => update('bio', e.target.value)}
-              placeholder="Tell your story…"
-            />
+            <TextArea rows={5} value={profile.bio ?? ''} onChange={e => update('bio', e.target.value)} placeholder="Tell your story…" />
           </Field>
           <Field label="Skills (comma-separated)">
-            <TextInput
-              value={skillsRaw}
-              onChange={e => setSkillsRaw(e.target.value)}
-              placeholder="React, TypeScript, Figma, Leadership"
-            />
+            <TextInput value={skillsRaw} onChange={e => setSkillsRaw(e.target.value)} placeholder="React, TypeScript, Figma, Leadership" />
           </Field>
         </div>
 
@@ -227,46 +232,25 @@ export default function ProfilePage() {
         <div className="glass rounded-2xl p-6 space-y-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Social links</h2>
           <Field label="Contact email (used in footer & Connect)">
-            <TextInput
-              type="email"
-              value={profile.email ?? ''}
-              onChange={e => update('email', e.target.value)}
-              placeholder="you@example.com"
-            />
+            <TextInput type="email" value={profile.email ?? ''} onChange={e => update('email', e.target.value)} placeholder="you@example.com" />
           </Field>
           <Field label="LinkedIn URL">
-            <TextInput
-              value={profile.linkedin ?? ''}
-              onChange={e => update('linkedin', e.target.value)}
-              placeholder="https://linkedin.com/in/…"
-            />
+            <TextInput value={profile.linkedin ?? ''} onChange={e => update('linkedin', e.target.value)} placeholder="https://linkedin.com/in/…" />
           </Field>
           <Field label="Instagram URL">
-            <TextInput
-              value={profile.instagram ?? ''}
-              onChange={e => update('instagram', e.target.value)}
-              placeholder="https://instagram.com/…"
-            />
+            <TextInput value={profile.instagram ?? ''} onChange={e => update('instagram', e.target.value)} placeholder="https://instagram.com/…" />
           </Field>
           <Field label="TikTok URL">
-            <TextInput
-              value={profile.tiktok ?? ''}
-              onChange={e => update('tiktok', e.target.value)}
-              placeholder="https://tiktok.com/@…"
-            />
+            <TextInput value={profile.tiktok ?? ''} onChange={e => update('tiktok', e.target.value)} placeholder="https://tiktok.com/@…" />
           </Field>
         </div>
 
         <div className="flex items-center gap-3">
           <PrimaryButton onClick={handleSave} disabled={saving}>
             {saving ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" /> Saving…
-              </span>
+              <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Saving…</span>
             ) : (
-              <span className="inline-flex items-center gap-2">
-                <Save className="w-4 h-4" /> Save changes
-              </span>
+              <span className="inline-flex items-center gap-2"><Save className="w-4 h-4" /> Save changes</span>
             )}
           </PrimaryButton>
           {saved && (
