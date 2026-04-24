@@ -1,45 +1,61 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { PenTool, Palette, Type, Brush, Printer, Package, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  PenTool, Palette, Type, Brush, Printer, Package, Heart,
+  X, ChevronLeft, ChevronRight, MoreHorizontal, Search, PlusSquare, User,
+  MessageCircle, Send, Bookmark, Home as HomeIcon, Film,
+} from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { supabase } from '../lib/supabase';
 import type { DesignWork, Category } from '../lib/types';
 
-/* ─── Main category definitions ─── */
-const MAIN_CATEGORIES = [
-  { key: 'social-media', label: 'Social Media', icon: Palette },
-  { key: 'logo-brand', label: 'Logo & Brand Identity', icon: Type },
-  { key: 'illustration', label: 'Illustration', icon: Brush },
-  { key: 'print', label: 'Print Design', icon: Printer },
-  { key: 'packaging', label: 'Packaging', icon: Package },
+/* ─────────────────────────────────────────────────────
+   Predefined main categories (dengan icon & presentation default)
+   Kategori lain yang kamu bikin di admin akan di-pick up
+   secara OTOMATIS sebagai kategori tambahan.
+───────────────────────────────────────────────────── */
+const PREDEFINED_CATEGORIES = [
+  { key: 'social-media', label: 'Social Media', icon: Palette, match: ['social media', 'instagram', 'feed'] },
+  { key: 'logo-brand', label: 'Logo & Brand Identity', icon: Type, match: ['logo', 'brand'] },
+  { key: 'illustration', label: 'Illustration', icon: Brush, match: ['illustra'] },
+  { key: 'fanart', label: 'Fanart', icon: Heart, match: ['fanart', 'fan art'] },
+  { key: 'print', label: 'Print Design', icon: Printer, match: ['print'] },
+  { key: 'packaging', label: 'Packaging', icon: Package, match: ['packaging', 'kemasan'] },
 ] as const;
 
-type MainCategoryKey = (typeof MAIN_CATEGORIES)[number]['key'];
+type PresentationType = 'phone' | 'grid' | 'gallery';
 
-/* Maps a category name from DB to our main keys */
-function resolveMainCategory(catName: string | undefined): MainCategoryKey | null {
-  if (!catName) return null;
-  const n = catName.toLowerCase();
-  if (n.includes('social media')) return 'social-media';
-  if (n.includes('logo') || n.includes('brand')) return 'logo-brand';
-  if (n.includes('illustra')) return 'illustration';
-  if (n.includes('print')) return 'print';
-  if (n.includes('packaging') || n.includes('kemasan')) return 'packaging';
+interface ResolvedCategory {
+  key: string;           // unique key untuk filter tab
+  label: string;         // ditampilkan di tab
+  icon: React.ComponentType<{ className?: string }>;
+  presentation: PresentationType;
+  catIds: string[];      // semua category_id yang masuk bucket ini
+}
+
+/* Cari predefined category yg match dengan nama kategori di DB */
+function matchPredefined(name: string) {
+  const n = name.toLowerCase();
+  for (const p of PREDEFINED_CATEGORIES) {
+    if (p.match.some(m => n.includes(m))) return p;
+  }
   return null;
 }
 
-/* Determine modal presentation type */
-function getPresentationType(mainCat: MainCategoryKey | null): 'phone' | 'grid' | 'gallery' {
-  if (mainCat === 'social-media') return 'phone';
-  if (mainCat === 'logo-brand') return 'grid';
+/* Tentukan tipe presentasi per kategori */
+function pickPresentation(predefKey: string | null, name: string): PresentationType {
+  if (predefKey === 'social-media') return 'phone';
+  if (predefKey === 'logo-brand') return 'grid';
+  // Default untuk Fanart, Illustration, Print, Packaging, atau kategori custom apa pun
   return 'gallery';
+  void name;
 }
 
 export default function DesignWorks() {
   const ref = useScrollAnimation();
   const [items, setItems] = useState<DesignWork[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [mainFilter, setMainFilter] = useState<MainCategoryKey | 'all'>('all');
-  const [subFilter, setSubFilter] = useState<string | 'all'>('all');
+  const [mainFilter, setMainFilter] = useState<string>('all');
+  const [subFilter, setSubFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [selectedWork, setSelectedWork] = useState<DesignWork | null>(null);
 
@@ -55,58 +71,105 @@ export default function DesignWorks() {
     })();
   }, []);
 
-  /* Map category ids to names for lookup */
-  const catMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    categories.forEach(c => { map[c.id] = c.name; });
-    return map;
+  /* Map id -> category row */
+  const catById = useMemo(() => {
+    const m = new Map<string, Category>();
+    categories.forEach(c => m.set(c.id, c));
+    return m;
   }, [categories]);
 
-  /* Build active main categories (only show tabs for cats that have items) */
-  const activeMainCats = useMemo(() => {
-    const found = new Set<MainCategoryKey>();
-    items.forEach(w => {
-      const catName = w.category_id ? catMap[w.category_id] : undefined;
-      const mk = resolveMainCategory(catName);
-      if (mk) found.add(mk);
-    });
-    return MAIN_CATEGORIES.filter(mc => found.has(mc.key));
-  }, [items, catMap]);
+  /* Bangun daftar "resolved categories" berdasarkan kategori yg dipakai di works */
+  const resolvedCategories = useMemo<ResolvedCategory[]>(() => {
+    const bucketByKey = new Map<string, ResolvedCategory>();
 
-  /* Get sub-types available for the current main filter */
+    // Kumpulkan hanya kategori yang benar-benar dipakai oleh minimal 1 work
+    const usedCatIds = new Set<string>();
+    items.forEach(w => { if (w.category_id) usedCatIds.add(w.category_id); });
+
+    usedCatIds.forEach(id => {
+      const cat = catById.get(id);
+      if (!cat) return;
+
+      const predef = matchPredefined(cat.name);
+      if (predef) {
+        const existing = bucketByKey.get(predef.key);
+        if (existing) {
+          existing.catIds.push(id);
+        } else {
+          bucketByKey.set(predef.key, {
+            key: predef.key,
+            label: predef.label,
+            icon: predef.icon,
+            presentation: pickPresentation(predef.key, cat.name),
+            catIds: [id],
+          });
+        }
+      } else {
+        // Kategori custom dari admin → bikin tab sendiri dengan nama kategorinya
+        const customKey = `custom:${cat.id}`;
+        bucketByKey.set(customKey, {
+          key: customKey,
+          label: cat.name,
+          icon: PenTool,
+          presentation: 'gallery',
+          catIds: [id],
+        });
+      }
+    });
+
+    // Urutkan: predefined dulu (sesuai urutan PREDEFINED_CATEGORIES), baru custom
+    const predefOrder = PREDEFINED_CATEGORIES.map(p => p.key);
+    return Array.from(bucketByKey.values()).sort((a, b) => {
+      const ai = predefOrder.indexOf(a.key);
+      const bi = predefOrder.indexOf(b.key);
+      if (ai === -1 && bi === -1) return a.label.localeCompare(b.label);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [items, catById]);
+
+  /* Bucket aktif (yg dipilih) */
+  const activeBucket = useMemo(
+    () => resolvedCategories.find(r => r.key === mainFilter) ?? null,
+    [resolvedCategories, mainFilter]
+  );
+
+  /* Sub-types yg tersedia di bucket aktif */
   const availableSubTypes = useMemo(() => {
-    if (mainFilter === 'all') return [];
+    if (!activeBucket) return [];
     const subs = new Set<string>();
     items.forEach(w => {
-      const catName = w.category_id ? catMap[w.category_id] : undefined;
-      const mk = resolveMainCategory(catName);
-      if (mk === mainFilter && w.sub_type) subs.add(w.sub_type);
+      if (w.category_id && activeBucket.catIds.includes(w.category_id) && w.sub_type) {
+        subs.add(w.sub_type);
+      }
     });
     return Array.from(subs).sort();
-  }, [mainFilter, items, catMap]);
+  }, [activeBucket, items]);
 
-  /* Filtered items */
+  /* Works yang difilter */
   const filtered = useMemo(() => {
     let result = items;
-    if (mainFilter !== 'all') {
-      result = result.filter(w => {
-        const catName = w.category_id ? catMap[w.category_id] : undefined;
-        return resolveMainCategory(catName) === mainFilter;
-      });
+    if (activeBucket) {
+      result = result.filter(w => w.category_id && activeBucket.catIds.includes(w.category_id));
     }
     if (subFilter !== 'all') {
       result = result.filter(w => w.sub_type === subFilter);
     }
     return result;
-  }, [mainFilter, subFilter, items, catMap]);
+  }, [items, activeBucket, subFilter]);
 
-  /* Reset sub-filter when main filter changes */
+  /* Reset sub-filter tiap ganti main filter */
   useEffect(() => { setSubFilter('all'); }, [mainFilter]);
 
-  const getMainCat = useCallback((w: DesignWork) => {
-    const catName = w.category_id ? catMap[w.category_id] : undefined;
-    return resolveMainCategory(catName);
-  }, [catMap]);
+  /* Cari bucket untuk satu work (buat nentuin presentation di modal) */
+  const getBucketForWork = useCallback(
+    (w: DesignWork): ResolvedCategory | null => {
+      if (!w.category_id) return null;
+      return resolvedCategories.find(r => r.catIds.includes(w.category_id!)) ?? null;
+    },
+    [resolvedCategories]
+  );
 
   return (
     <section id="works" className="min-h-screen flex items-center">
@@ -122,7 +185,7 @@ export default function DesignWorks() {
           </h2>
 
           {/* Main category tabs */}
-          {activeMainCats.length > 0 && (
+          {resolvedCategories.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               <button
                 onClick={() => setMainFilter('all')}
@@ -135,13 +198,13 @@ export default function DesignWorks() {
               >
                 All
               </button>
-              {activeMainCats.map(mc => {
-                const Icon = mc.icon;
-                const active = mainFilter === mc.key;
+              {resolvedCategories.map(rc => {
+                const Icon = rc.icon;
+                const active = mainFilter === rc.key;
                 return (
                   <button
-                    key={mc.key}
-                    onClick={() => setMainFilter(mc.key)}
+                    key={rc.key}
+                    onClick={() => setMainFilter(rc.key)}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       active
                         ? 'text-white shadow-sm'
@@ -150,14 +213,14 @@ export default function DesignWorks() {
                     style={active ? { background: 'var(--accent)' } : undefined}
                   >
                     <Icon className="w-3.5 h-3.5" />
-                    {mc.label}
+                    {rc.label}
                   </button>
                 );
               })}
             </div>
           )}
 
-          {/* Sub-type tabs (only when a main category is selected and sub-types exist) */}
+          {/* Sub-type tabs */}
           {availableSubTypes.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-6">
               <button
@@ -202,7 +265,7 @@ export default function DesignWorks() {
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filtered.map(w => {
-                const catName = w.category_id ? catMap[w.category_id] : undefined;
+                const catName = w.category_id ? catById.get(w.category_id)?.name : undefined;
                 return (
                   <article
                     key={w.id}
@@ -257,8 +320,8 @@ export default function DesignWorks() {
       {selectedWork && (
         <ProjectModal
           work={selectedWork}
-          mainCategory={getMainCat(selectedWork)}
-          categoryName={selectedWork.category_id ? catMap[selectedWork.category_id] : undefined}
+          bucket={getBucketForWork(selectedWork)}
+          categoryName={selectedWork.category_id ? catById.get(selectedWork.category_id)?.name : undefined}
           onClose={() => setSelectedWork(null)}
         />
       )}
@@ -272,14 +335,14 @@ export default function DesignWorks() {
 
 interface ProjectModalProps {
   work: DesignWork;
-  mainCategory: MainCategoryKey | null;
+  bucket: ResolvedCategory | null;
   categoryName?: string;
   onClose: () => void;
 }
 
-function ProjectModal({ work, mainCategory, categoryName, onClose }: ProjectModalProps) {
+function ProjectModal({ work, bucket, categoryName, onClose }: ProjectModalProps) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const presentationType = getPresentationType(mainCategory);
+  const presentationType: PresentationType = bucket?.presentation ?? 'gallery';
   const photos = work.photos ?? [];
 
   useEffect(() => {
@@ -343,7 +406,11 @@ function ProjectModal({ work, mainCategory, categoryName, onClose }: ProjectModa
             {photos.length > 0 && (
               <>
                 {presentationType === 'phone' && (
-                  <PhoneMockupPresentation photos={photos} onPhotoClick={setLightboxIdx} />
+                  <InstagramPhonePresentation
+                    photos={photos}
+                    username={work.title}
+                    onPhotoClick={setLightboxIdx}
+                  />
                 )}
                 {presentationType === 'grid' && (
                   <VariationGridPresentation photos={photos} onPhotoClick={setLightboxIdx} />
@@ -354,7 +421,7 @@ function ProjectModal({ work, mainCategory, categoryName, onClose }: ProjectModa
               </>
             )}
 
-            {/* Cover image if no gallery photos */}
+            {/* Cover image kalau ga ada gallery */}
             {photos.length === 0 && work.photo_url && (
               <div className="rounded-xl overflow-hidden">
                 <img src={work.photo_url} alt={work.title} className="w-full object-contain max-h-[60vh]" />
@@ -412,34 +479,150 @@ function ProjectModal({ work, mainCategory, categoryName, onClose }: ProjectModa
   );
 }
 
-/* ─── Phone Mockup Presentation (Social Media) ─── */
+/* ─────────────────────────────────────────────────────
+   Instagram Post Style Phone Mockup (Social Media)
+   — Tampil kayak buka 1 postingan di Instagram
+───────────────────────────────────────────────────── */
 
-function PhoneMockupPresentation({ photos, onPhotoClick }: { photos: string[]; onPhotoClick: (i: number) => void }) {
+function InstagramPhonePresentation({
+  photos,
+  username,
+  onPhotoClick,
+}: {
+  photos: string[];
+  username: string;
+  onPhotoClick: (i: number) => void;
+}) {
   const [currentIdx, setCurrentIdx] = useState(0);
+  const handle = '@' + username.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20);
+
+  const goPrev = () => setCurrentIdx(i => (i - 1 + photos.length) % photos.length);
+  const goNext = () => setCurrentIdx(i => (i + 1) % photos.length);
 
   return (
     <div className="flex flex-col items-center gap-6">
       {/* Phone frame */}
-      <div className="relative">
-        <div
-          className="relative rounded-[2.5rem] border-[6px] border-gray-800 dark:border-gray-600 bg-black overflow-hidden shadow-2xl"
-          style={{ width: 280, height: 560 }}
-        >
-          {/* Notch */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-b-2xl z-10" />
+      <div className="relative rounded-[2.5rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-neutral-900 overflow-hidden shadow-2xl"
+        style={{ width: 320, height: 640 }}
+      >
+        {/* Dynamic island / notch */}
+        <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-24 h-5 bg-black rounded-full z-20" />
 
-          {/* Screen */}
-          <div className="w-full h-full overflow-hidden">
+        {/* Status bar */}
+        <div className="absolute top-0 left-0 right-0 h-8 flex items-center justify-between px-6 text-[10px] font-semibold text-black dark:text-white z-10 pt-1">
+          <span>9:41</span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-2 border border-current rounded-sm" />
+          </span>
+        </div>
+
+        {/* Instagram "post" screen */}
+        <div className="absolute inset-0 pt-9 flex flex-col bg-white dark:bg-neutral-900">
+          {/* IG app header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-neutral-800">
+            <span
+              className="text-[15px] font-bold text-black dark:text-white"
+              style={{ fontFamily: 'Billabong, cursive, system-ui' }}
+            >
+              Instagram
+            </span>
+            <div className="flex items-center gap-3 text-black dark:text-white">
+              <Heart className="w-4 h-4" />
+              <Send className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Post header */}
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full p-[1.5px]" style={{ background: 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)' }}>
+                <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 p-[1.5px]">
+                  <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-400 to-pink-400" />
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold text-black dark:text-white truncate max-w-[150px]">
+                {handle}
+              </span>
+            </div>
+            <MoreHorizontal className="w-4 h-4 text-black dark:text-white" />
+          </div>
+
+          {/* Post image — aspect 1:1 seperti feed Instagram (contain, bukan zoom) */}
+          <div className="relative w-full aspect-square bg-gray-100 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
             <img
               src={photos[currentIdx]}
-              alt={`Social media design ${currentIdx + 1}`}
-              className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-105"
+              alt={`Post ${currentIdx + 1}`}
+              className="w-full h-full object-contain cursor-pointer"
               onClick={() => onPhotoClick(currentIdx)}
             />
+
+            {/* Carousel arrows */}
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={goPrev}
+                  className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow"
+                  aria-label="Previous"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 text-gray-800" />
+                </button>
+                <button
+                  onClick={goNext}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow"
+                  aria-label="Next"
+                >
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-800" />
+                </button>
+
+                {/* Carousel indicator (pill) */}
+                <div className="absolute top-2 right-2 bg-black/55 text-white text-[9px] font-medium rounded-full px-1.5 py-0.5">
+                  {currentIdx + 1}/{photos.length}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Action row */}
+          <div className="px-3 py-2 flex items-center justify-between text-black dark:text-white">
+            <div className="flex items-center gap-3">
+              <Heart className="w-5 h-5" />
+              <MessageCircle className="w-5 h-5" />
+              <Send className="w-5 h-5" />
+            </div>
+            {photos.length > 1 && (
+              <div className="flex items-center gap-1">
+                {photos.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`rounded-full transition-all ${i === currentIdx ? 'bg-blue-500 w-1.5 h-1.5' : 'bg-gray-300 dark:bg-neutral-600 w-1 h-1'}`}
+                  />
+                ))}
+              </div>
+            )}
+            <Bookmark className="w-5 h-5" />
+          </div>
+
+          {/* Caption */}
+          <div className="px-3 pb-2 flex-1">
+            <p className="text-[11px] text-black dark:text-white">
+              <span className="font-semibold">{handle}</span>{' '}
+              <span className="text-gray-700 dark:text-gray-300 line-clamp-2">
+                {username}
+              </span>
+            </p>
+          </div>
+
+          {/* IG bottom nav */}
+          <div className="border-t border-gray-200 dark:border-neutral-800 px-4 py-2 flex items-center justify-between text-black dark:text-white">
+            <HomeIcon className="w-5 h-5" />
+            <Search className="w-5 h-5" />
+            <PlusSquare className="w-5 h-5" />
+            <Film className="w-5 h-5" />
+            <User className="w-5 h-5" />
           </div>
 
           {/* Home indicator */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/30 rounded-full" />
+          <div className="mx-auto w-24 h-1 bg-black dark:bg-white rounded-full mb-1.5" />
         </div>
       </div>
 
@@ -515,7 +698,7 @@ function VariationGridPresentation({ photos, onPhotoClick }: { photos: string[];
   );
 }
 
-/* ─── Gallery Presentation (Illustration, Print, Packaging) ─── */
+/* ─── Gallery Presentation (Illustration, Fanart, Print, Packaging, Custom) ─── */
 
 function GalleryPresentation({ photos, onPhotoClick }: { photos: string[]; onPhotoClick: (i: number) => void }) {
   return (
