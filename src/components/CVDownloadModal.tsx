@@ -1,97 +1,150 @@
 import { useState } from 'react';
-import { Download, Loader2, CheckCircle2 } from 'lucide-react';
+import { Download, Loader2, CheckCircle2, LogIn } from 'lucide-react';
 import Modal from './Modal';
 import { supabase } from '../lib/supabase';
 
 interface CVDownloadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  cvUrl: string | null;
+  cvType: 'design' | 'arch'; // mana yang mau didownload
 }
 
-export default function CVDownloadModal({ isOpen, onClose, cvUrl }: CVDownloadModalProps) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const reset = () => {
-    setName('');
-    setEmail('');
-    setDone(false);
-    setError(null);
-    setSubmitting(false);
-  };
+export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadModalProps) {
+  const [step, setStep] = useState<'login' | 'loading' | 'done' | 'error'>('login');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleClose = () => {
-    reset();
+    setStep('login');
+    setErrorMsg(null);
     onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!cvUrl) {
-      setError('CV file is not available yet. Please try again later.');
-      return;
-    }
-
-    setSubmitting(true);
+  const handleGoogleLogin = async () => {
+    setStep('loading');
+    setErrorMsg(null);
     try {
-      const { error: insertErr } = await supabase
-        .from('cv_downloads')
-        .insert({ name: name.trim(), email: email.trim() });
+      // Login Google — redirect kembali ke halaman ini setelah auth
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.href,
+          queryParams: {
+            // simpan cv_type di URL supaya setelah redirect tahu mau download yang mana
+            prompt: 'select_account',
+          },
+          scopes: 'email profile',
+        },
+      });
+      if (error) throw error;
+      // Setelah redirect balik, user sudah login — komponen parent perlu handle ini
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? 'Gagal login. Coba lagi.');
+      setStep('error');
+    }
+  };
 
-      if (insertErr) throw insertErr;
+  const handleDownloadAfterLogin = async () => {
+    setStep('loading');
+    setErrorMsg(null);
+    try {
+      // Ambil session yang aktif
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setStep('login');
+        return;
+      }
 
-      // Trigger the download
+      // Ambil URL file CV dari tabel cv_files
+      const { data: cvFile, error: fetchErr } = await supabase
+        .from('cv_files')
+        .select('file_url, label')
+        .eq('cv_type', cvType)
+        .single();
+
+      if (fetchErr || !cvFile?.file_url) {
+        throw new Error('File CV belum tersedia. Coba lagi nanti.');
+      }
+
+      // Catat download ke cv_downloads
+      const user = session.user;
+      await supabase.from('cv_downloads').insert({
+        cv_type: cvType,
+        user_id: user.id,
+        name: user.user_metadata?.full_name ?? user.email,
+        email: user.email,
+      });
+
+      // Trigger download
       const a = document.createElement('a');
-      a.href = cvUrl;
-      a.download = 'CV.pdf';
+      a.href = cvFile.file_url;
+      a.download = `CV_${cvType === 'design' ? 'Design' : 'Architecture'}.pdf`;
       a.rel = 'noopener';
       a.target = '_blank';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
 
-      setDone(true);
-    } catch (err) {
-      console.error(err);
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
+      setStep('done');
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? 'Terjadi kesalahan. Coba lagi.');
+      setStep('error');
     }
   };
+
+  const cvLabel = cvType === 'design' ? 'CV Design' : 'CV Architecture';
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="download-cv" maxWidth="max-w-md">
       <div className="p-6">
-        {done ? (
+
+        {/* DONE */}
+        {step === 'done' && (
           <div className="flex flex-col items-center text-center py-6 gap-4">
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8 text-emerald-500" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
-                Download started
-              </h3>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Download started!</h3>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Thanks! Your CV should start downloading in a moment.
+                {cvLabel} sedang didownload.
               </p>
             </div>
             <button
               onClick={handleClose}
-              className="mt-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="mt-2 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90"
               style={{ background: 'var(--accent)' }}
             >
               Close
             </button>
           </div>
-        ) : (
+        )}
+
+        {/* LOADING */}
+        {step === 'loading' && (
+          <div className="flex flex-col items-center py-10 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)]" />
+            <p className="text-sm text-[var(--text-secondary)]">Sebentar…</p>
+          </div>
+        )}
+
+        {/* ERROR */}
+        {step === 'error' && (
+          <div className="flex flex-col items-center text-center py-6 gap-4">
+            <p className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-lg">{errorMsg}</p>
+            <button
+              onClick={() => setStep('login')}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90"
+              style={{ background: 'var(--accent)' }}
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
+
+        {/* LOGIN PROMPT */}
+        {step === 'login' && (
           <>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-5">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
                 style={{ background: 'var(--accent)' }}
@@ -99,66 +152,31 @@ export default function CVDownloadModal({ isOpen, onClose, cvUrl }: CVDownloadMo
                 <Download className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">Download CV</h3>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  A few details before you go
-                </p>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">Download {cvLabel}</h3>
+                <p className="text-xs text-[var(--text-secondary)]">Login dulu biar aku tau siapa yang minta 👀</p>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg glass text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/60"
-                  placeholder="Your name"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg glass text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/60"
-                  placeholder="you@example.com"
-                />
-              </div>
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-[var(--border)] glass text-sm font-medium text-[var(--text-primary)] hover:opacity-80 transition-opacity"
+            >
+              {/* Google icon SVG */}
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Continue with Google
+            </button>
 
-              {error && (
-                <p className="text-xs text-red-500 bg-red-500/10 px-3 py-2 rounded-lg">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full px-4 py-2.5 rounded-lg font-medium text-white transition-opacity hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ background: 'var(--accent)' }}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Preparing...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" /> Download CV
-                  </>
-                )}
-              </button>
-            </form>
+            <p className="text-[11px] text-[var(--text-secondary)] text-center mt-3">
+              Nama & email dari Google account kamu akan disimpan sebagai catatan download.
+            </p>
           </>
         )}
+
       </div>
     </Modal>
   );
