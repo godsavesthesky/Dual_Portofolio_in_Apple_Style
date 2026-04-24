@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download, Loader2, CheckCircle2 } from 'lucide-react';
 import Modal from './Modal';
 import { supabase } from '../lib/supabase';
@@ -7,11 +7,28 @@ interface CVDownloadModalProps {
   isOpen: boolean;
   onClose: () => void;
   cvType: 'design' | 'arch';
+  /** Kalau true, langsung download tanpa perlu klik tombol (setelah OAuth redirect) */
+  autoDownload?: boolean;
 }
 
-export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadModalProps) {
+export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload = false }: CVDownloadModalProps) {
   const [step, setStep] = useState<'login' | 'loading' | 'done' | 'error'>('login');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const didAutoDownload = useRef(false);
+
+  // Kalau modal dibuka dengan autoDownload=true, langsung cek session & download
+  useEffect(() => {
+    if (!isOpen || !autoDownload || didAutoDownload.current) return;
+    didAutoDownload.current = true;
+    doDownload();
+  }, [isOpen, autoDownload]);
+
+  // Reset state kalau modal ditutup
+  useEffect(() => {
+    if (!isOpen) {
+      didAutoDownload.current = false;
+    }
+  }, [isOpen]);
 
   const handleClose = () => {
     setStep('login');
@@ -23,7 +40,6 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
     setStep('loading');
     setErrorMsg(null);
     try {
-      // Pakai origin saja (tanpa path/query/hash) supaya OAuth state tidak rusak
       const redirectTo = `${window.location.origin}/?cv=${cvType}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -40,12 +56,13 @@ export default function CVDownloadModal({ isOpen, onClose, cvType }: CVDownloadM
     }
   };
 
-  const handleDownloadAfterLogin = async () => {
+  const doDownload = async () => {
     setStep('loading');
     setErrorMsg(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
+        // Belum login — tampilkan tombol login
         setStep('login');
         return;
       }
