@@ -9,7 +9,9 @@ export interface Profile {
   instagram: string | null;
   tiktok: string | null;
   email: string | null;
-  skills: string[] | null;
+  skills: string[] | null;              // legacy — tetap dipertahankan
+  software_skills: string[] | null;     // baru — untuk Software Tools
+  soft_skills: string[] | null;         // baru — untuk Soft Skills
   updated_at: string;
 }
 
