@@ -3,7 +3,7 @@ import { Film } from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { supabase } from '../lib/supabase';
 import type { ArchVideo } from '../lib/types';
-import VideoGallery from '../components/VideoGallery';
+import MacVideoGallery from '../components/MacVideoGallery';
 import VideoFolderGallery from '../components/VideoFolderGallery';
 
 interface VideoItem {
@@ -57,6 +57,18 @@ export default function ArchVideos() {
 
   const hasContent = videos.length > 0 || projects.length > 0;
 
+  // Map ArchVideo → VideoEntry for MacVideoGallery
+  const archEntries = videos.map(v => ({
+    id: v.id,
+    title: v.title,
+    video_url: v.video_url ?? null,
+    videos: (v as any).videos ?? null,
+    thumbnail_url: v.thumbnail_url ?? null,
+    description: v.description ?? null,
+    year: v.year ?? null,
+    video_type: (v as any).video_type ?? null,
+  }));
+
   return (
     <section id="arch-videos" className="min-h-[70vh] flex items-center">
       <div className="section-container w-full">
@@ -82,17 +94,24 @@ export default function ArchVideos() {
               {projects.length > 0 && (
                 <div>
                   {videos.length > 0 && (
-                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-4">Projects</p>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-4">
+                      Projects
+                    </p>
                   )}
                   <VideoFolderGallery projects={projects} />
                 </div>
               )}
-              {videos.length > 0 && (
+              {archEntries.length > 0 && (
                 <div>
                   {projects.length > 0 && (
-                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-4">Individual</p>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-secondary)] mb-4">
+                      Individual
+                    </p>
                   )}
-                  <VideoGallery videos={videos} title="arch-videos.mov" />
+                  <MacVideoGallery
+                    entries={archEntries}
+                    windowTitle="arch-videos.mov"
+                  />
                 </div>
               )}
             </div>
