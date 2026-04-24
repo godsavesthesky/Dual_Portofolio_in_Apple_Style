@@ -37,9 +37,9 @@ export interface DesignWork {
 export interface DesignVideo {
   id: string;
   title: string;
-  design_work_id: string | null;   // optionally belongs to a design work
-  video_type: string | null;      // "Brand Video" | "Social Content" | "Motion Graphics" etc
-  video_url: string | null;        // direct mp4/webm URL or embed
+  design_work_id: string | null;
+  video_type: string | null;
+  video_url: string | null;
   thumbnail_url: string | null;
   description: string | null;
   year: number | null;
@@ -52,10 +52,10 @@ export interface Zine {
   issue: string | null;
   year: number | null;
   cover_url: string | null;
-  photos: string[] | null;         // interior pages gallery
+  photos: string[] | null;
   description: string | null;
   page_count: number | null;
-  pdf_url: string | null;          // optional downloadable pdf
+  pdf_url: string | null;
   created_at: string;
 }
 
@@ -75,18 +75,18 @@ export interface ArchWork {
 export interface Drawing {
   id: string;
   title: string;
-  arch_work_id: string | null;     // belongs to an arch project
-  drawing_type: string | null;     // "Floor Plan" | "Section" | "Elevation" | "Detail" etc
+  arch_work_id: string | null;
+  drawing_type: string | null;
   image_url: string | null;
-  photos: string[] | null;         // multiple drawing sheets
+  photos: string[] | null;
   created_at: string;
 }
 
 export interface ArchVideo {
   id: string;
   title: string;
-  arch_work_id: string | null;    // belongs to an arch project
-  video_type: string | null;      // "3D Walkthrough" | "Fly-through" | "Process" etc
+  arch_work_id: string | null;
+  video_type: string | null;
   video_url: string | null;
   thumbnail_url: string | null;
   description: string | null;
@@ -107,7 +107,17 @@ export interface Experience {
 
 export interface CvDownload {
   id: string;
-  name: string;
-  email: string;
+  name: string | null;
+  email: string | null;
+  cv_type: 'design' | 'arch' | null;
+  user_id: string | null;
   downloaded_at: string;
+}
+
+export interface CvFile {
+  id: string;
+  cv_type: 'design' | 'arch';
+  file_url: string | null;
+  label: string | null;
+  updated_at: string;
 }
