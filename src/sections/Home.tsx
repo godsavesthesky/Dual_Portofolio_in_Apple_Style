@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Download, ArrowRight } from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { useProfile } from '../lib/useProfile';
+import { supabase } from '../lib/supabase';
 import CVDownloadModal from '../components/CVDownloadModal';
 
 interface HomeProps {
@@ -14,19 +15,62 @@ export default function Home({ activeSide }: HomeProps) {
   const ref3 = useScrollAnimation();
   const { profile } = useProfile();
   const [cvOpen, setCvOpen] = useState(false);
+  // autoDownload = true kalau user baru balik dari OAuth redirect
+  const [autoDownload, setAutoDownload] = useState(false);
+  // cvType dari URL param (bisa beda dari activeSide kalau user redirect dari OAuth)
+  const [oauthCvType, setOauthCvType] = useState<'design' | 'arch' | null>(null);
 
   // Setelah redirect balik dari Google OAuth, cek ?cv= di URL
-  // kalau ada, langsung buka modal dan lanjut download
+  // Tunggu session Supabase siap dulu, baru buka modal + auto-download
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cvParam = params.get('cv');
-    if (cvParam === 'design' || cvParam === 'arch') {
+    if (cvParam !== 'design' && cvParam !== 'arch') return;
+
+    // Bersihkan query param dari URL tanpa reload
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Simpan cvType dari URL supaya tidak tergantung activeSide
+    setOauthCvType(cvParam);
+
+    let handled = false;
+
+    const tryOpen = (session: any) => {
+      if (handled || !session) return;
+      handled = true;
+      setAutoDownload(true);
       setCvOpen(true);
-      // Bersihkan query param dari URL tanpa reload
-      const clean = window.location.pathname + window.location.hash;
-      window.history.replaceState({}, '', clean);
-    }
+    };
+
+    // Listen untuk auth state change (kalau token masih diproses dari hash)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      tryOpen(session);
+    });
+
+    // Cek juga kalau session sudah ada langsung
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      tryOpen(session);
+    });
+
+    // Fallback: kalau setelah 5 detik masih belum ada session, buka modal biasa (login lagi)
+    const timeout = setTimeout(() => {
+      if (!handled) {
+        handled = true;
+        setCvOpen(true);
+      }
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
+
+  const handleCloseModal = () => {
+    setCvOpen(false);
+    setAutoDownload(false);
+    setOauthCvType(null);
+  };
 
   const displayName = profile?.name || 'Your Name';
   const photo = profile?.photo_url;
@@ -37,6 +81,9 @@ export default function Home({ activeSide }: HomeProps) {
   const badge = activeSide === 'design'
     ? 'Graphic Designer · Illustrator'
     : 'Building Designer · Visualizer';
+
+  // Pakai cvType dari OAuth param kalau ada, otherwise ikuti activeSide
+  const modalCvType = oauthCvType ?? activeSide;
 
   return (
     <section id="home" className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
@@ -88,11 +135,11 @@ export default function Home({ activeSide }: HomeProps) {
         </div>
       </div>
 
-      {/* cvType mengikuti activeSide — design atau arch sesuai halaman yang sedang dibuka */}
       <CVDownloadModal
         isOpen={cvOpen}
-        onClose={() => setCvOpen(false)}
-        cvType={activeSide}
+        onClose={handleCloseModal}
+        cvType={modalCvType}
+        autoDownload={autoDownload}
       />
     </section>
   );
