@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Mail } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import Modal from './Modal';
+import { useProfile } from '../lib/useProfile';
 
 interface ConnectModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface ConnectModalProps {
 }
 
 export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
+  const { profile } = useProfile();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
@@ -18,19 +20,11 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
-    setName('');
-    setEmail('');
-    setSubject('');
-    setMessage('');
-    setError(null);
-    setSent(false);
-    setSubmitting(false);
+    setName(''); setEmail(''); setSubject(''); setMessage('');
+    setError(null); setSent(false); setSubmitting(false);
   };
 
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
+  const handleClose = () => { reset(); onClose(); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +34,19 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
     const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string | undefined;
     const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string | undefined;
 
+    // Fallback: buka mailto kalau EmailJS belum dikonfigurasi
     if (!serviceId || !templateId || !publicKey) {
-      setError('Email service is not configured yet.');
+      const to = profile?.email ?? '';
+      if (to) {
+        const body = `Name: ${name}\nEmail: ${email}\n\n${message}`;
+        window.open(
+          `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+          '_blank'
+        );
+        setSent(true);
+      } else {
+        setError('Email service is not configured yet. Please contact the site owner directly.');
+      }
       return;
     }
 
@@ -53,9 +58,10 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
         {
           from_name: name,
           from_email: email,
+          // "subject" sesuai template EmailJS field {{subject}}
           subject,
           message,
-          // EmailJS generic template placeholders
+          // alias juga untuk template yang pakai {{name}} dan {{email}}
           name,
           email,
         },
@@ -64,7 +70,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
       setSent(true);
     } catch (err) {
       console.error(err);
-      setError('Failed to send. Please try again.');
+      setError('Failed to send. Please try again or email me directly.');
     } finally {
       setSubmitting(false);
     }
@@ -79,7 +85,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
               <CheckCircle2 className="w-8 h-8 text-emerald-500" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Message sent</h3>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Message sent!</h3>
               <p className="text-sm text-[var(--text-secondary)] mt-1">
                 Thanks for reaching out. I'll get back to you soon.
               </p>
@@ -104,9 +110,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Name
-                  </label>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Name</label>
                   <input
                     type="text"
                     required
@@ -117,9 +121,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Email
-                  </label>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Email</label>
                   <input
                     type="email"
                     required
@@ -132,9 +134,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Subject
-                </label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Subject</label>
                 <input
                   type="text"
                   required
@@ -146,9 +146,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Message
-                </label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Message</label>
                 <textarea
                   required
                   rows={5}
@@ -160,9 +158,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
               </div>
 
               {error && (
-                <p className="text-xs text-red-500 bg-red-500/10 px-3 py-2 rounded-lg">
-                  {error}
-                </p>
+                <p className="text-xs text-red-500 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
               )}
 
               <button
@@ -172,15 +168,25 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
                 style={{ background: 'var(--accent)' }}
               >
                 {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Sending...
-                  </>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
                 ) : (
-                  <>
-                    <Send className="w-4 h-4" /> Send message
-                  </>
+                  <><Send className="w-4 h-4" /> Send message</>
                 )}
               </button>
+
+              {/* Fallback langsung email kalau ada email di profile */}
+              {profile?.email && (
+                <p className="text-center text-xs text-[var(--text-secondary)]">
+                  or email directly at{' '}
+                  <a
+                    href={`mailto:${profile.email}`}
+                    className="underline hover:text-[var(--accent)] transition-colors"
+                  >
+                    <Mail className="w-3 h-3 inline mr-0.5" />
+                    {profile.email}
+                  </a>
+                </p>
+              )}
             </form>
           </>
         )}
