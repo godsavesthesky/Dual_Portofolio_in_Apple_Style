@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Play, VolumeX, Volume2, Film, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight, Play, Pause, VolumeX, Volume2, Film, X } from 'lucide-react';
 
 interface VideoItem {
   id: string;
@@ -14,9 +15,9 @@ interface VideoGalleryProps {
   title?: string;
 }
 
-/* ───────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════
  *  VIDEO CARD (preview kecil di track)
- * ─────────────────────────────────────────────────────────────── */
+ * ═══════════════════════════════════════════════════════════════ */
 function VideoCard({ video, onClick }: { video: VideoItem; onClick: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -66,7 +67,7 @@ function VideoCard({ video, onClick }: { video: VideoItem; onClick: () => void }
           />
           {/* Play icon overlay on hover */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 group-hover:scale-100 duration-200">
+            <div className="w-12 h-12 rounded-full bg-white/95 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 duration-200 shadow-lg">
               <Play className="w-5 h-5 text-black ml-0.5" fill="currentColor" />
             </div>
           </div>
@@ -91,7 +92,7 @@ function VideoCard({ video, onClick }: { video: VideoItem; onClick: () => void }
         </div>
       )}
 
-      {/* Overlay info */}
+      {/* Top badge */}
       <div className="absolute top-2 left-2 flex gap-1.5">
         {video.video_type && (
           <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-white/90 bg-black/40 backdrop-blur-md">
@@ -99,6 +100,7 @@ function VideoCard({ video, onClick }: { video: VideoItem; onClick: () => void }
           </span>
         )}
       </div>
+      {/* Bottom title */}
       <div className="absolute bottom-0 left-0 right-0 p-2.5 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
         <p className="text-xs font-medium text-white/90 truncate">{video.title}</p>
       </div>
@@ -106,9 +108,10 @@ function VideoCard({ video, onClick }: { video: VideoItem; onClick: () => void }
   );
 }
 
-/* ───────────────────────────────────────────────────────────────
- *  LIGHTBOX (iOS-style fullscreen viewer)
- * ─────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+ *  LIGHTBOX (macOS-style fullscreen viewer)
+ *  Rendered via portal → escapes all stacking contexts
+ * ═══════════════════════════════════════════════════════════════ */
 function VideoLightbox({
   videos,
   index,
@@ -123,6 +126,10 @@ function VideoLightbox({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [playing, setPlaying] = useState(true);
+  const [progress, setProgress] = useState(0); // 0..1
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   const current = videos[index];
   const hasPrev = index > 0;
@@ -142,8 +149,7 @@ function VideoLightbox({
       else if (e.key === 'ArrowRight' && hasNext) onNavigate(index + 1);
       else if (e.key === ' ') {
         e.preventDefault();
-        const v = videoRef.current;
-        if (v) { v.paused ? v.play() : v.pause(); }
+        togglePlay();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -157,26 +163,66 @@ function VideoLightbox({
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // Auto-play when video changes
+  // Reset on video change
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     v.currentTime = 0;
-    v.play().catch(() => {});
+    v.play().then(() => setPlaying(true)).catch(() => {});
   }, [index]);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play().then(() => setPlaying(true)).catch(() => {}); }
+    else { v.pause(); setPlaying(false); }
+  };
+
+  const onTimeUpdate = () => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    setProgress(v.currentTime / v.duration);
+    setCurrentTime(v.currentTime);
+  };
+
+  const onLoadedMetadata = () => {
+    const v = videoRef.current;
+    if (v) setDuration(v.duration);
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    v.currentTime = Math.max(0, Math.min(1, ratio)) * v.duration;
+  };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
   };
 
-  return (
+  const fmt = (s: number) => {
+    if (!isFinite(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  return createPortal(
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-[10001] flex items-center justify-center p-4 sm:p-8"
       style={{
-        background: 'rgba(0,0,0,0.92)',
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483000, // absurdly high — beats everything including TourGuide
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(32px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(32px) saturate(180%)',
         opacity: mounted ? 1 : 0,
         transition: 'opacity 0.3s ease',
       }}
@@ -184,22 +230,57 @@ function VideoLightbox({
       {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white/90 hover:bg-white/20 hover:text-white transition-all z-20"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-all"
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          background: 'rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+        }}
         aria-label="Close"
       >
         <X className="w-5 h-5" />
       </button>
 
       {/* Counter */}
-      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-white/80 text-xs font-medium z-20">
-        {index + 1} / {videos.length}
+      <div
+        className="text-white/80 text-xs font-medium"
+        style={{
+          position: 'absolute',
+          top: '24px',
+          left: '20px',
+          padding: '6px 12px',
+          borderRadius: '999px',
+          background: 'rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255,255,255,0.12)',
+        }}
+      >
+        {index + 1} of {videos.length}
       </div>
 
       {/* Prev button */}
       {hasPrev && (
         <button
           onClick={() => onNavigate(index - 1)}
-          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white/90 hover:bg-white/20 hover:text-white transition-all z-20"
+          className="flex items-center justify-center text-white/90 hover:text-white transition-all"
+          style={{
+            position: 'absolute',
+            left: '20px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '48px',
+            height: '48px',
+            borderRadius: '999px',
+            background: 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+          }}
           aria-label="Previous"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -210,68 +291,241 @@ function VideoLightbox({
       {hasNext && (
         <button
           onClick={() => onNavigate(index + 1)}
-          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white/90 hover:bg-white/20 hover:text-white transition-all z-20"
+          className="flex items-center justify-center text-white/90 hover:text-white transition-all"
+          style={{
+            position: 'absolute',
+            right: '20px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '48px',
+            height: '48px',
+            borderRadius: '999px',
+            background: 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+          }}
           aria-label="Next"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
       )}
 
-      {/* Video container */}
+      {/* Video frame */}
       <div
-        className="relative flex flex-col items-center gap-4 max-h-full"
         style={{
-          transform: mounted ? 'scale(1)' : 'scale(0.94)',
-          transition: 'transform 0.35s cubic-bezier(0.22,1,0.36,1)',
+          position: 'relative',
+          transform: mounted ? 'scale(1)' : 'scale(0.92)',
+          transition: 'transform 0.4s cubic-bezier(0.22,1,0.36,1)',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+          background: '#000',
+          aspectRatio: '9 / 16',
+          height: 'min(82dvh, 820px)',
+          maxWidth: '92vw',
         }}
       >
         {current.video_url ? (
           <video
             ref={videoRef}
-            key={current.id} // force remount on change
+            key={current.id}
             src={current.video_url}
             poster={current.thumbnail_url ?? undefined}
             muted={muted}
             loop
             playsInline
-            controls
             autoPlay
-            className="rounded-2xl shadow-2xl max-h-[78vh] w-auto"
+            onClick={togglePlay}
+            onTimeUpdate={onTimeUpdate}
+            onLoadedMetadata={onLoadedMetadata}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
             style={{
-              aspectRatio: '9 / 16',
-              maxWidth: 'min(420px, 88vw)',
-              background: '#000',
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+              cursor: 'pointer',
             }}
           />
         ) : (
-          <div className="rounded-2xl bg-black/40 p-10 text-white/70 text-sm">
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '14px',
+            }}
+          >
             Video tidak tersedia.
           </div>
         )}
 
-        {/* Info bar */}
-        <div className="flex items-center justify-center gap-3 flex-wrap max-w-[90vw]">
-          {current.video_type && (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-white/90 bg-white/15">
-              {current.video_type}
-            </span>
-          )}
-          <p className="text-sm font-medium text-white/90 text-center">{current.title}</p>
-          <button
-            onClick={() => setMuted(m => !m)}
-            className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:bg-white/20 transition-colors"
+        {/* TOP badge — type */}
+        {current.video_type && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              color: 'rgba(255,255,255,0.95)',
+              fontSize: '10px',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+            }}
           >
-            {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {current.video_type}
+          </div>
+        )}
+
+        {/* Center Play button (when paused) */}
+        {!playing && current.video_url && (
+          <button
+            onClick={togglePlay}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%,-50%)',
+              width: '72px',
+              height: '72px',
+              borderRadius: '999px',
+              background: 'rgba(255,255,255,0.95)',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            }}
+            aria-label="Play"
+          >
+            <Play className="w-8 h-8 text-black ml-1" fill="currentColor" />
           </button>
+        )}
+
+        {/* BOTTOM bar — custom macOS-style controls */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '20px 14px 14px',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.75) 20%, transparent)',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Title */}
+          <p
+            style={{
+              color: 'rgba(255,255,255,0.95)',
+              fontSize: '13px',
+              fontWeight: 600,
+              margin: '0 0 10px',
+              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+            }}
+          >
+            {current.title}
+          </p>
+
+          {/* Progress bar */}
+          <div
+            onClick={seek}
+            style={{
+              height: '4px',
+              borderRadius: '999px',
+              background: 'rgba(255,255,255,0.25)',
+              overflow: 'hidden',
+              cursor: 'pointer',
+              marginBottom: '8px',
+              pointerEvents: 'auto',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${progress * 100}%`,
+                background: 'rgba(255,255,255,0.95)',
+                transition: 'width 0.1s linear',
+              }}
+            />
+          </div>
+
+          {/* Controls row */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              pointerEvents: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={togglePlay}
+                style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                }}
+              >
+                {playing ? <Pause className="w-3.5 h-3.5" fill="currentColor" /> : <Play className="w-3.5 h-3.5 ml-0.5" fill="currentColor" />}
+              </button>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)', fontVariantNumeric: 'tabular-nums' }}>
+                {fmt(currentTime)} / {fmt(duration)}
+              </span>
+            </div>
+            <button
+              onClick={() => setMuted(m => !m)}
+              style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '999px',
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+              }}
+            >
+              {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
-/* ───────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════
  *  GALLERY (track + lightbox host)
- * ─────────────────────────────────────────────────────────────── */
+ * ═══════════════════════════════════════════════════════════════ */
 export default function VideoGallery({ videos, title }: VideoGalleryProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
@@ -333,7 +587,7 @@ export default function VideoGallery({ videos, title }: VideoGalleryProps) {
         </div>
       </div>
 
-      {/* Lightbox */}
+      {/* Lightbox (rendered via portal → document.body) */}
       {openIdx !== null && (
         <VideoLightbox
           videos={videos}
