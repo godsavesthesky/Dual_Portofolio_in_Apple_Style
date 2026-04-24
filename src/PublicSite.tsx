@@ -18,9 +18,11 @@ import Zines from './sections/Zines';
 
 // Architecture side
 import ArchWorks from './sections/ArchWorks';
+import ArchDrawings from './sections/ArchDrawings';
+import ArchVideos from './sections/ArchVideos';
 
 const DESIGN_SECTIONS = ['home', 'works', 'videos', 'zines', 'about', 'experience'];
-const ARCH_SECTIONS = ['home', 'works', 'about', 'experience'];
+const ARCH_SECTIONS   = ['home', 'works', 'drawings', 'arch-videos', 'about', 'experience'];
 
 export default function PublicSite() {
   const { theme, toggleTheme } = useTheme();
@@ -30,33 +32,21 @@ export default function PublicSite() {
 
   const sections = activeSide === 'design' ? DESIGN_SECTIONS : ARCH_SECTIONS;
 
-  // Intersection observers for active section tracking
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
-
-    // Small delay to let DOM update after side switch
     const timer = setTimeout(() => {
       sections.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-
         const observer = new IntersectionObserver(
-          ([entry]) => {
-            if (entry.isIntersecting) {
-              setActiveSection(id);
-            }
-          },
+          ([entry]) => { if (entry.isIntersecting) setActiveSection(id); },
           { threshold: 0.35 }
         );
         observer.observe(el);
         observers.push(observer);
       });
     }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      observers.forEach(o => o.disconnect());
-    };
+    return () => { clearTimeout(timer); observers.forEach(o => o.disconnect()); };
   }, [sections, activeSide]);
 
   const handleNavigate = useCallback((id: string) => {
@@ -73,7 +63,6 @@ export default function PublicSite() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text-primary)] transition-colors duration-300">
-      {/* Mobile nav */}
       <Navbar
         activeSection={activeSection}
         onNavigate={handleNavigate}
@@ -83,10 +72,8 @@ export default function PublicSite() {
         activeSide={activeSide}
       />
 
-      {/* Prominent side switcher */}
       <SideSwitcher activeSide={activeSide} onSwitch={handleSwitchSide} />
 
-      {/* Main content — key forces remount on side switch for fresh animations */}
       <main className="pt-14 md:pt-0" key={activeSide}>
         <div className="side-enter">
           <Home activeSide={activeSide} />
@@ -100,6 +87,8 @@ export default function PublicSite() {
           ) : (
             <>
               <ArchWorks />
+              <ArchDrawings />
+              <ArchVideos />
             </>
           )}
 
@@ -114,7 +103,6 @@ export default function PublicSite() {
         activeSide={activeSide}
       />
 
-      {/* macOS Dock — desktop only */}
       <Dock
         activeSection={activeSection}
         onNavigate={handleNavigate}
