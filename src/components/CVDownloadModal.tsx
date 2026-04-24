@@ -56,13 +56,35 @@ export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload 
     }
   };
 
+  /**
+   * Trigger download dari URL dengan fetch → blob → createObjectURL.
+   * Cara ini bypass cross-origin limitation pada attribute `download`,
+   * dan memaksa browser untuk save file (bukan preview).
+   */
+  const triggerBlobDownload = async (fileUrl: string, filename: string) => {
+    const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error(`Fetch gagal: ${response.status}`);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    // JANGAN pakai target="_blank" — bikin popup blocker jalan
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Bersihin blob URL setelah delay
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  };
+
   const doDownload = async () => {
     setStep('loading');
     setErrorMsg(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Belum login — tampilkan tombol login
         setStep('login');
         return;
       }
@@ -77,6 +99,7 @@ export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload 
         throw new Error('File CV belum tersedia. Coba lagi nanti.');
       }
 
+      // Log download dulu (biar ke-record meskipun user cancel di browser)
       const user = session.user;
       await supabase.from('cv_downloads').insert({
         cv_type: cvType,
@@ -85,14 +108,19 @@ export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload 
         email: user.email,
       });
 
-      const a = document.createElement('a');
-      a.href = cvFile.file_url;
-      a.download = `CV_${cvType === 'design' ? 'Design' : 'Architecture'}.pdf`;
-      a.rel = 'noopener';
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Tentukan ekstensi dari URL (jangan hardcode .pdf — bisa jadi .docx)
+      const urlPath = new URL(cvFile.file_url).pathname;
+      const ext = urlPath.split('.').pop() || 'pdf';
+      const filename = `CV_${cvType === 'design' ? 'Design' : 'Architecture'}.${ext}`;
+
+      try {
+        // Coba blob download dulu (paling reliable)
+        await triggerBlobDownload(cvFile.file_url, filename);
+      } catch (blobErr) {
+        // Fallback: kalau fetch gagal (misal CORS block), buka di tab baru
+        console.warn('Blob download gagal, fallback ke tab baru:', blobErr);
+        window.open(cvFile.file_url, '_blank', 'noopener,noreferrer');
+      }
 
       setStep('done');
     } catch (err: any) {
