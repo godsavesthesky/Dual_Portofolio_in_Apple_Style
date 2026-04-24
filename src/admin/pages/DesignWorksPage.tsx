@@ -25,6 +25,7 @@ export default function DesignWorksPage() {
   const [items, setItems] = useState<Work[]>([]);
   const [cats, setCats] = useState<Cat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -40,8 +41,15 @@ export default function DesignWorksPage() {
   }
 
   async function add() {
-    const { data } = await supabase.from('design_works').insert({ title: 'New Work' }).select().single();
-    if (data) setItems(prev => [data as Work, ...prev]);
+    setAdding(true);
+    const { data, error } = await supabase.from('design_works').insert({ title: 'New Work' }).select().single();
+    if (error) {
+      alert(`Gagal menambah: ${error.message}`);
+      console.error('[DesignWorks] insert error:', error);
+    } else if (data) {
+      setItems(prev => [data as Work, ...prev]);
+    }
+    setAdding(false);
   }
 
   async function update(id: string, field: string, value: any) {
@@ -55,7 +63,6 @@ export default function DesignWorksPage() {
     setItems(prev => prev.filter(i => i.id !== id));
   }
 
-  /* Collect existing sub-types for autocomplete suggestions */
   const existingSubTypes = useMemo(() => {
     const subs = new Set<string>();
     items.forEach(i => { if (i.sub_type) subs.add(i.sub_type); });
@@ -73,8 +80,8 @@ export default function DesignWorksPage() {
             Social media, logo/brand, illustration, print design, packaging, dll.
           </p>
         </div>
-        <button onClick={add} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: 'var(--accent)' }}>
-          <Plus className="w-4 h-4" /> Tambah
+        <button onClick={add} disabled={adding} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--accent)' }}>
+          <Plus className="w-4 h-4" /> {adding ? 'Menambah…' : 'Tambah'}
         </button>
       </div>
 
@@ -83,7 +90,6 @@ export default function DesignWorksPage() {
           <div key={item.id} className="glass rounded-xl p-5">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-3">
-                {/* Title */}
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Judul</label>
                   <input
@@ -93,8 +99,6 @@ export default function DesignWorksPage() {
                     className="w-full px-3 py-2 rounded-lg glass text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/60"
                   />
                 </div>
-
-                {/* Category */}
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Kategori</label>
                   <select
@@ -109,8 +113,6 @@ export default function DesignWorksPage() {
                     Buat kategori baru di menu Categories (type: Design Work)
                   </p>
                 </div>
-
-                {/* Sub-type */}
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] mb-1">
                     <Tag className="w-3 h-3" />
@@ -135,8 +137,6 @@ export default function DesignWorksPage() {
                     Sub-kategori bebas (opsional). Ketik atau pilih dari yang sudah ada.
                   </p>
                 </div>
-
-                {/* Year */}
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Tahun</label>
                   <input
@@ -147,8 +147,6 @@ export default function DesignWorksPage() {
                     placeholder="2024"
                   />
                 </div>
-
-                {/* Description */}
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Deskripsi</label>
                   <textarea
@@ -160,29 +158,16 @@ export default function DesignWorksPage() {
                   />
                 </div>
               </div>
-
               <div className="space-y-4">
-                <ImageUpload
-                  url={item.photo_url}
-                  onChange={url => update(item.id, 'photo_url', url)}
-                  folder="design-works"
-                  label="Cover Image"
-                />
-                <MultiPhotoUpload
-                  photos={item.photos ?? []}
-                  onChange={photos => update(item.id, 'photos', photos)}
-                  folder="design-works"
-                  label="Gallery (bisa multiple)"
-                />
+                <ImageUpload url={item.photo_url} onChange={url => update(item.id, 'photo_url', url)} folder="design-works" label="Cover Image" />
+                <MultiPhotoUpload photos={item.photos ?? []} onChange={photos => update(item.id, 'photos', photos)} folder="design-works" label="Gallery (bisa multiple)" />
               </div>
             </div>
-
             <button onClick={() => remove(item.id)} className="mt-4 flex items-center gap-1 text-xs text-red-500 hover:text-red-400 transition-colors">
               <Trash2 className="w-3 h-3" /> Hapus
             </button>
           </div>
         ))}
-
         {items.length === 0 && (
           <div className="glass rounded-xl p-8 text-center">
             <p className="text-sm text-[var(--text-secondary)]">Belum ada works. Klik "Tambah" untuk mulai.</p>
