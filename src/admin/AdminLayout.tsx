@@ -12,6 +12,8 @@ import {
   Download,
   LogOut,
   ExternalLink,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../hooks/useTheme';
@@ -45,7 +47,7 @@ const navGroups = [
 ];
 
 export default function AdminLayout() {
-  useTheme();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -94,6 +96,11 @@ export default function AdminLayout() {
         </nav>
 
         <div className="p-3 border-t border-[var(--border)] space-y-1">
+          <button onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors">
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
           <a href="/" target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors">
             <ExternalLink className="w-4 h-4" /> View site
