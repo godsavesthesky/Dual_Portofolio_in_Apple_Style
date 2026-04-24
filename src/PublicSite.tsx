@@ -93,7 +93,7 @@ export default function PublicSite() {
           )}
 
           <About />
-          <ExperienceSection />
+          <ExperienceSection activeSide={activeSide} />
         </div>
       </main>
 
