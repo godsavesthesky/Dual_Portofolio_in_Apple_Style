@@ -26,6 +26,7 @@ export interface DesignWork {
   id: string;
   title: string;
   category_id: string | null;
+  sub_type: string | null;
   year: number | null;
   description: string | null;
   photo_url: string | null;
