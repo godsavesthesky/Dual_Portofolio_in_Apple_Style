@@ -1,10 +1,10 @@
-import { supabase, BUCKET_PHOTOS, BUCKET_DOCS } from './supabase';
+import { supabase, BUCKET_PHOTOS, BUCKET_DOCS, BUCKET_VIDEOS } from './supabase';
 
 /**
  * Upload a file to Supabase Storage and return its public URL.
  */
 export async function uploadFile(
-  bucket: 'photos' | 'documents',
+  bucket: 'photos' | 'documents' | 'videos',
   file: File,
   folder = ''
 ): Promise<string> {
@@ -29,4 +29,8 @@ export async function uploadPhoto(file: File, folder = '') {
 
 export async function uploadDocument(file: File, folder = '') {
   return uploadFile(BUCKET_DOCS, file, folder);
+}
+
+export async function uploadVideo(file: File, folder = '') {
+  return uploadFile(BUCKET_VIDEOS, file, folder);
 }
