@@ -62,11 +62,11 @@ export default function ArchVideos() {
     id: v.id,
     title: v.title,
     video_url: v.video_url ?? null,
-    videos: (v as any).videos ?? null,
+    videos: v.videos ?? null,
     thumbnail_url: v.thumbnail_url ?? null,
     description: v.description ?? null,
     year: v.year ?? null,
-    video_type: (v as any).video_type ?? null,
+    video_type: v.video_type ?? null,
   }));
 
   return (
