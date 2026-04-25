@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Download, Loader2, CheckCircle2 } from 'lucide-react';
 import Modal from './Modal';
 import { supabase } from '../lib/supabase';
@@ -15,13 +15,6 @@ export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload 
   const [step, setStep] = useState<'login' | 'loading' | 'done' | 'error'>('login');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const didAutoDownload = useRef(false);
-
-  // Kalau modal dibuka dengan autoDownload=true, langsung cek session & download
-  useEffect(() => {
-    if (!isOpen || !autoDownload || didAutoDownload.current) return;
-    didAutoDownload.current = true;
-    doDownload();
-  }, [isOpen, autoDownload]);
 
   // Reset state kalau modal ditutup
   useEffect(() => {
@@ -79,7 +72,7 @@ export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload 
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  const doDownload = async () => {
+  const doDownload = useCallback(async () => {
     setStep('loading');
     setErrorMsg(null);
     try {
@@ -127,7 +120,14 @@ export default function CVDownloadModal({ isOpen, onClose, cvType, autoDownload 
       setErrorMsg(err?.message ?? 'Terjadi kesalahan. Coba lagi.');
       setStep('error');
     }
-  };
+  }, [cvType]);
+
+  // Kalau modal dibuka dengan autoDownload=true, langsung cek session & download
+  useEffect(() => {
+    if (!isOpen || !autoDownload || didAutoDownload.current) return;
+    didAutoDownload.current = true;
+    doDownload();
+  }, [isOpen, autoDownload, doDownload]);
 
   const cvLabel = cvType === 'design' ? 'CV Design' : 'CV Architecture';
 
