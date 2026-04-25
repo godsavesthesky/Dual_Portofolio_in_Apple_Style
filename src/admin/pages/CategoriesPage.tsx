@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Category } from '../../lib/types';
 import {
@@ -32,6 +32,7 @@ export default function CategoriesPage() {
       .from('categories')
       .select('*')
       .order('type')
+      .order('display_order')
       .order('name');
     setItems((data as Category[]) ?? []);
     setLoading(false);
@@ -44,7 +45,15 @@ export default function CategoriesPage() {
   const handleAdd = async () => {
     if (!name.trim()) return;
     setSubmitting(true);
-    await supabase.from('categories').insert({ name: name.trim(), type });
+    // Hitung display_order untuk kategori baru = max + 1 dari type yang sama
+    const same = items.filter(i => i.type === type);
+    const nextOrder = same.length === 0
+      ? 0
+      : Math.max(...same.map(s => s.display_order ?? 0)) + 1;
+    const { error } = await supabase
+      .from('categories')
+      .insert({ name: name.trim(), type, display_order: nextOrder });
+    if (error) alert(`Gagal: ${error.message}`);
     setName('');
     setSubmitting(false);
     load();
@@ -53,7 +62,48 @@ export default function CategoriesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this category? Items will keep their reference but show — as category.'))
       return;
-    await supabase.from('categories').delete().eq('id', id);
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) {
+      alert(`Gagal menghapus: ${error.message}`);
+      return;
+    }
+    load();
+  };
+
+  // Swap display_order dengan tetangga (move up/down)
+  const handleMove = async (categoryId: string, direction: 'up' | 'down') => {
+    const cur = items.find(i => i.id === categoryId);
+    if (!cur) return;
+    const sameType = items
+      .filter(i => i.type === cur.type)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const idx = sameType.findIndex(i => i.id === categoryId);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sameType.length) return;
+    const neighbor = sameType[swapIdx];
+    const curOrder = cur.display_order ?? 0;
+    const neighborOrder = neighbor.display_order ?? 0;
+
+    // Optimistic update
+    const prevItems = items;
+    setItems(prev =>
+      prev.map(i => {
+        if (i.id === cur.id) return { ...i, display_order: neighborOrder };
+        if (i.id === neighbor.id) return { ...i, display_order: curOrder };
+        return i;
+      })
+    );
+
+    // Persist
+    const [r1, r2] = await Promise.all([
+      supabase.from('categories').update({ display_order: neighborOrder }).eq('id', cur.id),
+      supabase.from('categories').update({ display_order: curOrder }).eq('id', neighbor.id),
+    ]);
+    if (r1.error || r2.error) {
+      alert(`Gagal reorder: ${r1.error?.message ?? r2.error?.message}`);
+      setItems(prevItems);
+      return;
+    }
     load();
   };
 
@@ -61,7 +111,7 @@ export default function CategoriesPage() {
     <>
       <PageHeader
         title="Categories"
-        description="Kategori untuk Design Works, Architecture, Zines, dan Drawings."
+        description="Kategori untuk Design Works, Architecture, Zines, dan Drawings. Pakai panah untuk atur urutan tampil di website & PDF."
       />
 
       <div className="glass rounded-2xl p-5 mb-6">
@@ -89,11 +139,7 @@ export default function CategoriesPage() {
           </Field>
           <PrimaryButton onClick={handleAdd} disabled={submitting || !name.trim()}>
             <span className="inline-flex items-center gap-1.5">
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Add
             </span>
           </PrimaryButton>
@@ -105,13 +151,16 @@ export default function CategoriesPage() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-5">
           {CATEGORY_TYPES.map(ct => {
-            const filtered = items.filter(i => i.type === ct.value);
+            const filtered = items
+              .filter(i => i.type === ct.value)
+              .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
             return (
               <CategoryList
                 key={ct.value}
                 title={`${ct.emoji} ${ct.label}`}
                 items={filtered}
                 onDelete={handleDelete}
+                onMove={handleMove}
               />
             );
           })}
@@ -125,10 +174,12 @@ function CategoryList({
   title,
   items,
   onDelete,
+  onMove,
 }: {
   title: string;
   items: Category[];
   onDelete: (id: string) => void;
+  onMove: (id: string, dir: 'up' | 'down') => void;
 }) {
   return (
     <div className="glass rounded-2xl p-5">
@@ -139,12 +190,32 @@ function CategoryList({
         <p className="text-xs text-[var(--text-secondary)]">No categories yet.</p>
       ) : (
         <ul className="space-y-2">
-          {items.map(c => (
+          {items.map((c, idx) => (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg glass"
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg glass"
             >
-              <span className="text-sm text-[var(--text-primary)] truncate">{c.name}</span>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => onMove(c.id, 'up')}
+                    disabled={idx === 0}
+                    className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Pindah ke atas"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onMove(c.id, 'down')}
+                    disabled={idx === items.length - 1}
+                    className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Pindah ke bawah"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <span className="text-sm text-[var(--text-primary)] truncate">{c.name}</span>
+              </div>
               <DangerButton onClick={() => onDelete(c.id)}>Delete</DangerButton>
             </li>
           ))}
