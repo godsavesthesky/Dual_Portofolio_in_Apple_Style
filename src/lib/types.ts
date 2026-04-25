@@ -92,6 +92,10 @@ export interface ArchVideo {
   video_url: string | null;
   thumbnail_url: string | null;
   description: string | null;
+  /** Optional — present only if the column exists in your Supabase schema. */
+  year?: number | null;
+  /** Optional — present only if the column exists in your Supabase schema. */
+  videos?: string[] | null;
   created_at: string;
 }
 
