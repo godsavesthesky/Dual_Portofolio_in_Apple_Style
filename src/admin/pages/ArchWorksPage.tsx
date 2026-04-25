@@ -4,7 +4,7 @@ import { Trash2, Plus } from 'lucide-react';
 import ImageUpload from '../components/ImageUpload';
 import MultiPhotoUpload from '../components/MultiPhotoUpload';
 
-interface Work { id: string; title: string; category_id: string | null; year: number | null; description: string | null; photo_url: string | null; photos: string[]; created_at: string; }
+interface Work { id: string; title: string; category_id: string | null; year: number | null; description: string | null; photo_url: string | null; photos: string[]; featured?: boolean; created_at: string; }
 interface Cat { id: string; name: string; }
 
 export default function ArchWorksPage() {
@@ -81,6 +81,15 @@ export default function ArchWorksPage() {
                 </div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Tahun</label><input type="number" value={item.year ?? ''} onChange={e => update(item.id, 'year', e.target.value ? parseInt(e.target.value) : null)} className="w-full px-3 py-2 rounded-lg glass text-sm text-[var(--text-primary)] focus:outline-none" placeholder="2024" /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Deskripsi</label><textarea value={item.description ?? ''} onChange={e => update(item.id, 'description', e.target.value || null)} rows={3} className="w-full px-3 py-2 rounded-lg glass text-sm text-[var(--text-primary)] resize-none focus:outline-none" /></div>
+                <label className="flex items-center gap-2 text-xs font-medium text-[var(--text-primary)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.featured ?? false}
+                    onChange={e => update(item.id, 'featured', e.target.checked)}
+                    className="w-4 h-4 rounded accent-[var(--accent)]"
+                  />
+                  <span>⭐ Featured (masuk ke PDF portfolio)</span>
+                </label>
               </div>
               <div className="space-y-4">
                 <ImageUpload url={item.photo_url} onChange={url => update(item.id, 'photo_url', url)} folder="arch-works" label="Cover Project" />
