@@ -49,8 +49,13 @@ function Lightbox({
       if (e.key === 'ArrowLeft') prev();
       if (e.key === 'ArrowRight') next();
     };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
+    return () => {
+      window.removeEventListener('keydown', h);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [onClose, prev, next]);
 
   useEffect(() => {
@@ -203,27 +208,28 @@ function AlbumTile({
             className="w-full h-full object-cover"
             muted
             playsInline
+            preload="metadata"
           />
         ) : count === 2 ? (
           /* Two: side by side */
           <div className="grid grid-cols-2 h-full gap-px">
             {previews.map((url, i) => (
-              <video key={i} src={url} className="w-full h-full object-cover" muted playsInline />
+              <video key={i} src={url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
             ))}
           </div>
         ) : count === 3 ? (
           /* Three: big left + two stacked right */
           <div className="grid h-full gap-px" style={{ gridTemplateColumns: '2fr 1fr' }}>
-            <video src={previews[0]} className="w-full h-full object-cover row-span-2" muted playsInline />
-            <video src={previews[1]} className="w-full h-full object-cover" muted playsInline />
-            <video src={previews[2]} className="w-full h-full object-cover" muted playsInline />
+            <video src={previews[0]} className="w-full h-full object-cover row-span-2" muted playsInline preload="metadata" />
+            <video src={previews[1]} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+            <video src={previews[2]} className="w-full h-full object-cover" muted playsInline preload="metadata" />
           </div>
         ) : (
           /* 4+: 2x2 grid */
           <div className="grid grid-cols-2 grid-rows-2 h-full gap-px">
             {previews.map((url, i) => (
               <div key={i} className="relative">
-                <video src={url} className="w-full h-full object-cover" muted playsInline />
+                <video src={url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                 {i === 3 && count > 4 && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                     <span className="text-white text-base font-bold">+{count - 4}</span>
