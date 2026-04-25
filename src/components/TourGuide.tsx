@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, ChevronRight, ChevronLeft, Map } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft } from 'lucide-react';
 
 const TOUR_KEY = 'portfolio_tour_done_v4';
+const MOBILE_BREAKPOINT = 768; // matches Tailwind md breakpoint
 
 type Lang = 'id' | 'en';
 type Mood = 'wave' | 'point' | 'think' | 'excited' | 'bye' | 'fly' | 'idle';
@@ -9,12 +10,18 @@ type Phase = 'hidden' | 'intro' | 'tour' | 'standby';
 
 interface TourStep {
   targetSelector?: string;
+  /** Alternate selector used on mobile when the desktop target is hidden. */
+  mobileTargetSelector?: string;
   scrollToSection?: string;
   highlightSelector?: string;
+  /** Alternate highlight selector for mobile. */
+  mobileHighlightSelector?: string;
   title: { id: string; en: string };
   desc: { id: string; en: string };
   mood: Mood;
   bubbleDir: 'left' | 'right' | 'top' | 'bottom';
+  /** Bubble direction override on mobile (Dock is bottom-only on desktop, but on mobile we usually want bubble below the element). */
+  mobileBubbleDir?: 'left' | 'right' | 'top' | 'bottom';
   // Optional: demo action to run when step shown
   demoAction?: 'click-design' | 'click-arch';
 }
@@ -41,8 +48,11 @@ const STEPS: TourStep[] = [
     bubbleDir: 'bottom',
   },
   {
+    // Desktop: highlight the Dock "Works" item. Mobile: Dock is hidden, so highlight the section instead.
     targetSelector: '[data-tour="dock-works"]',
     highlightSelector: '[data-tour="dock-works"]',
+    mobileTargetSelector: '#works',
+    mobileHighlightSelector: '#works',
     scrollToSection: 'works',
     title: { id: 'Galeri Karya 🖼️', en: 'Works Gallery 🖼️' },
     desc: {
@@ -51,10 +61,13 @@ const STEPS: TourStep[] = [
     },
     mood: 'excited',
     bubbleDir: 'top',
+    mobileBubbleDir: 'bottom', // section is large, so put bubble below the top edge
   },
   {
     targetSelector: '[data-tour="dock-about"]',
     highlightSelector: '[data-tour="dock-about"]',
+    mobileTargetSelector: '#about',
+    mobileHighlightSelector: '#about',
     scrollToSection: 'about',
     title: { id: 'Tentang Aku 👤', en: 'About Me 👤' },
     desc: {
@@ -63,10 +76,15 @@ const STEPS: TourStep[] = [
     },
     mood: 'think',
     bubbleDir: 'top',
+    mobileBubbleDir: 'bottom',
   },
   {
     targetSelector: '[data-tour="dock-connect"]',
     highlightSelector: '[data-tour="dock-connect"]',
+    // On mobile, the "Connect" button lives inside the Navbar's hamburger menu which is closed by default.
+    // Highlight the menu button instead so users know where to find it.
+    mobileTargetSelector: '[data-tour="navbar-menu"]',
+    mobileHighlightSelector: '[data-tour="navbar-menu"]',
     title: { id: 'Yuk Ngobrol! 💬', en: "Let's Connect! 💬" },
     desc: {
       id: 'Mau kolaborasi atau sekedar say hi? Klik Connect dan kirimin pesan langsung!',
@@ -74,8 +92,34 @@ const STEPS: TourStep[] = [
     },
     mood: 'bye',
     bubbleDir: 'top',
+    mobileBubbleDir: 'bottom',
   },
 ];
+
+/** Check if an element is actually visible (not display:none). */
+function isElementVisible(el: Element | null): el is HTMLElement {
+  if (!el) return false;
+  const html = el as HTMLElement;
+  // offsetParent is null when the element or any ancestor has display:none
+  // (does not catch position:fixed, but we check rect width/height as fallback)
+  if (html.offsetParent === null && getComputedStyle(html).position !== 'fixed') {
+    return false;
+  }
+  const r = html.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+
+function isMobileViewport() {
+  return typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
+}
+
+/** Pick the best selector for the current viewport, falling back if mobile target is missing. */
+function resolveStep(step: TourStep, mobile: boolean) {
+  const targetSelector = mobile && step.mobileTargetSelector ? step.mobileTargetSelector : step.targetSelector;
+  const highlightSelector = mobile && step.mobileHighlightSelector ? step.mobileHighlightSelector : step.highlightSelector;
+  const bubbleDir = mobile && step.mobileBubbleDir ? step.mobileBubbleDir : step.bubbleDir;
+  return { ...step, targetSelector, highlightSelector, bubbleDir };
+}
 
 // ─── Spotlight overlay ────────────────────────────────────────────
 function SpotlightOverlay({
@@ -90,13 +134,32 @@ function SpotlightOverlay({
   useEffect(() => {
     if (!active || !targetSelector) { setRect(null); return; }
 
+    let rafId: number | null = null;
     const update = () => {
       const el = document.querySelector(targetSelector);
       if (el) setRect(el.getBoundingClientRect());
     };
+    const schedule = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        update();
+      });
+    };
+
     update();
-    const id = setInterval(update, 200);
-    return () => clearInterval(id);
+    window.addEventListener('scroll', schedule, true);
+    window.addEventListener('resize', schedule);
+    // Catch DOM changes (e.g., dock items mounting in/out) without polling.
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+    return () => {
+      window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
+      observer.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [targetSelector, active]);
 
   if (!active) return null;
@@ -402,7 +465,24 @@ export default function TourGuide() {
   const [introVisible, setIntroVisible] = useState(false);
   const [bob, setBob] = useState(false);
   const [spotlightSel, setSpotlightSel] = useState<string | undefined>(undefined);
+  const [mobile, setMobile] = useState(() => isMobileViewport());
   const posRef = useRef({ x: 0, y: 0 });
+
+  const [resizeTick, setResizeTick] = useState(0);
+
+  // Track viewport size so steps re-resolve on rotate / resize
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setMobile(isMobileViewport());
+        setResizeTick(t => t + 1);
+      }, 200);
+    };
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); clearTimeout(timeoutId); };
+  }, []);
 
   useEffect(() => {
     if (phase !== 'tour') return;
@@ -424,13 +504,43 @@ export default function TourGuide() {
 
   const getCenter = useCallback((sel: string) => {
     const el = document.querySelector(sel);
-    if (!el) return null;
+    if (!isElementVisible(el)) return null;
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }, []);
 
+  /** Compute robot landing position around a target rect, clamped inside the viewport. */
+  const computeLanding = useCallback((dest: { x: number; y: number }, dir: 'top' | 'bottom' | 'left' | 'right') => {
+    const ROBOT_HALF = 36;
+    const BUBBLE_W = mobile ? Math.min(262, window.innerWidth - 32) : 262;
+    let landX = dest.x - ROBOT_HALF;
+    let landY =
+      dir === 'top' ? dest.y - 136 :
+      dir === 'bottom' ? dest.y + 20 :
+      dest.y - 50;
+
+    // Clamp so the robot + bubble stay on screen.
+    const minX = 16;
+    const maxX = window.innerWidth - 80; // leave space for robot width (~72px)
+    const minY = 16;
+    const maxY = window.innerHeight - 120;
+    landX = Math.max(minX, Math.min(maxX, landX));
+    landY = Math.max(minY, Math.min(maxY, landY));
+
+    // Make sure bubble (centered on robot for top/bottom) doesn't overflow horizontally.
+    if (dir === 'top' || dir === 'bottom') {
+      const robotCenterX = landX + ROBOT_HALF;
+      const bubbleLeft = robotCenterX - BUBBLE_W / 2;
+      const bubbleRight = robotCenterX + BUBBLE_W / 2;
+      if (bubbleLeft < 8) landX += 8 - bubbleLeft;
+      else if (bubbleRight > window.innerWidth - 8) landX -= bubbleRight - (window.innerWidth - 8);
+    }
+    return { x: landX, y: landY };
+  }, [mobile]);
+
   const flyToStep = useCallback((idx: number, from: { x: number; y: number }) => {
-    const s = STEPS[idx];
+    const rawStep = STEPS[idx];
+    const s = resolveStep(rawStep, mobile);
     setBubbleVisible(false);
     setSpotlightSel(undefined);
 
@@ -440,16 +550,26 @@ export default function TourGuide() {
       if (section) section.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    /** Land at viewport center when no valid target exists. */
+    const flyToCenter = () => {
+      const cx = window.innerWidth / 2 - 36;
+      const cy = window.innerHeight / 2 - 60;
+      setFlying(true);
+      setRobotPos(from);
+      requestAnimationFrame(() => requestAnimationFrame(() => setRobotPos({ x: cx, y: cy })));
+      setTimeout(() => {
+        posRef.current = { x: cx, y: cy };
+        setFlying(false);
+        setTimeout(() => setBubbleVisible(true), 140);
+      }, 740);
+    };
+
     if (s.targetSelector) {
       // Wait a tick for scroll to start, then get position
       const doFly = () => {
         const dest = getCenter(s.targetSelector!);
         if (dest) {
-          const landX = dest.x - 36;
-          const landY =
-            s.bubbleDir === 'top' ? dest.y - 136 :
-            s.bubbleDir === 'bottom' ? dest.y + 20 :
-            dest.y - 50;
+          const { x: landX, y: landY } = computeLanding(dest, s.bubbleDir);
 
           setFlying(true);
           setRobotPos(from);
@@ -458,16 +578,16 @@ export default function TourGuide() {
           setTimeout(() => {
             posRef.current = { x: landX, y: landY };
             setFlying(false);
-            // Show spotlight on target
-            setSpotlightSel(s.highlightSelector);
+            // Show spotlight on target (only if it's actually visible)
+            if (s.highlightSelector && isElementVisible(document.querySelector(s.highlightSelector))) {
+              setSpotlightSel(s.highlightSelector);
+            }
             setTimeout(() => setBubbleVisible(true), 140);
           }, 740);
           return;
         }
-        // fallback: no element found, just show bubble
-        posRef.current = from;
-        setRobotPos(from);
-        setTimeout(() => setBubbleVisible(true), 200);
+        // Target not found / not visible — fall back to viewport center, no spotlight.
+        flyToCenter();
       };
 
       if (s.scrollToSection) {
@@ -482,7 +602,7 @@ export default function TourGuide() {
     posRef.current = from;
     setRobotPos(from);
     setTimeout(() => setBubbleVisible(true), 200);
-  }, [getCenter]);
+  }, [getCenter, computeLanding, mobile]);
 
   const beginTour = useCallback((l: Lang) => {
     setLang(l);
@@ -525,6 +645,14 @@ export default function TourGuide() {
     flyToStep(prev, posRef.current);
   }, [step, flyToStep]);
 
+  // Re-fly to current step when viewport changes (rotation, resize) — keeps the
+  // robot anchored to its (possibly newly resolved) target instead of stranded.
+  useEffect(() => {
+    if (phase !== 'tour' || resizeTick === 0) return;
+    flyToStep(step, posRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resizeTick]);
+
   const dismiss = useCallback(() => {
     setIntroVisible(false);
     setBubbleVisible(false);
@@ -550,20 +678,23 @@ export default function TourGuide() {
   }, []);
 
   const cur = STEPS[step];
+  const resolvedCur = cur ? resolveStep(cur, mobile) : undefined;
   const isLast = step === STEPS.length - 1;
 
   // Bubble positioning relative to robot
   const bubblePos: React.CSSProperties = (() => {
+    const bubbleWidth = mobile ? Math.min(262, window.innerWidth - 32) : 262;
     const base: React.CSSProperties = {
       position: 'absolute',
-      width: '262px',
+      width: `${bubbleWidth}px`,
+      maxWidth: 'calc(100vw - 32px)',
       opacity: bubbleVisible ? 1 : 0,
       transition: 'opacity 0.28s ease, transform 0.3s cubic-bezier(0.22,1,0.36,1)',
       pointerEvents: bubbleVisible ? 'auto' : 'none',
       zIndex: 10001,
     };
     const inV = bubbleVisible;
-    switch (cur?.bubbleDir) {
+    switch (resolvedCur?.bubbleDir) {
       case 'top':    return { ...base, bottom: '108%', left: '50%', transform: `translateX(-50%) ${inV ? 'scale(1)' : 'scale(0.94) translateY(6px)'}`, transformOrigin: 'bottom center' };
       case 'bottom': return { ...base, top: '108%',   left: '50%', transform: `translateX(-50%) ${inV ? 'scale(1)' : 'scale(0.94) translateY(-6px)'}`, transformOrigin: 'top center' };
       case 'left':   return { ...base, right: '108%', top: '0',    transform: inV ? 'scale(1)' : 'scale(0.94) translateX(6px)',  transformOrigin: 'right center' };
