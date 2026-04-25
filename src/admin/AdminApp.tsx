@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './useAuth';
+import { supabase } from '../lib/supabase';
 import AdminLogin from './AdminLogin';
 import AdminLayout from './AdminLayout';
 
@@ -16,12 +17,39 @@ import ArchVideosPage from './pages/ArchVideosPage';
 import VideoProjectsPage from './pages/VideoProjectsPage';
 
 export default function AdminApp() {
-  const { session, loading } = useAuth();
+  const { session, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center text-[var(--text-secondary)]">
         Loading…
+      </div>
+    );
+  }
+
+  // Authenticated but NOT an admin → reject. Sign them out so they don't keep
+  // a session that could be exploited if RLS ever weakens.
+  if (session && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center px-4">
+        <div className="max-w-md w-full glass-heavy rounded-2xl p-8 text-center">
+          <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+            Access denied
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)] mb-6">
+            Account ini bukan admin. Login dengan akun yang terdaftar di tabel <code>admins</code>.
+          </p>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.replace('/admin/login');
+            }}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     );
   }
