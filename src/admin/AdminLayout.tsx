@@ -15,6 +15,7 @@ import {
   Sun,
   Moon,
   FolderOpen,
+  FileDown,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../hooks/useTheme';
@@ -28,6 +29,7 @@ const navGroups = [
       { to: '/admin/experience', label: 'Experience', icon: Briefcase },
       { to: '/admin/video-projects', label: 'Video Projects', icon: FolderOpen },
       { to: '/admin/cv-downloads', label: 'CV Downloads', icon: Download },
+      { to: '/admin/portfolio-pdf', label: 'Portfolio PDF', icon: FileDown },
     ],
   },
   {
