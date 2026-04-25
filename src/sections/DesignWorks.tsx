@@ -118,7 +118,7 @@ export default function DesignWorks() {
     });
 
     // Urutkan: predefined dulu (sesuai urutan PREDEFINED_CATEGORIES), baru custom
-    const predefOrder = PREDEFINED_CATEGORIES.map(p => p.key);
+    const predefOrder: string[] = PREDEFINED_CATEGORIES.map(p => p.key);
     return Array.from(bucketByKey.values()).sort((a, b) => {
       const ai = predefOrder.indexOf(a.key);
       const bi = predefOrder.indexOf(b.key);
