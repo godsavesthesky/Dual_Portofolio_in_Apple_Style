@@ -33,6 +33,7 @@ export interface DesignWork {
   description: string | null;
   photo_url: string | null;
   photos: string[] | null;
+  featured?: boolean;
   created_at: string;
 }
 
@@ -71,6 +72,7 @@ export interface ArchWork {
   description: string | null;
   photo_url: string | null;
   photos: string[] | null;
+  featured?: boolean;
   created_at: string;
 }
 
