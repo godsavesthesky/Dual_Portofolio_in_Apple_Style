@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, X, Film, Plus } from 'lucide-react';
+import { Loader2, X, Plus } from 'lucide-react';
 import { uploadVideo } from '../../lib/storage';
 
 interface Props {
