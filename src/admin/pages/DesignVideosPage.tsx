@@ -31,10 +31,23 @@ export default function DesignVideosPage() {
     setAdding(false);
   }
   async function update(id: string, field: string, value: any) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
-    await supabase.from('design_videos').update({ [field]: value }).eq('id', id);
+    const prev = items;
+    setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
+    const { error } = await supabase.from('design_videos').update({ [field]: value }).eq('id', id);
+    if (error) {
+      alert(`Gagal menyimpan: ${error.message}`);
+      setItems(prev);
+    }
   }
-  async function remove(id: string) { if (!confirm('Hapus?')) return; await supabase.from('design_videos').delete().eq('id', id); setItems(prev => prev.filter(i => i.id !== id)); }
+  async function remove(id: string) {
+    if (!confirm('Hapus?')) return;
+    const { error } = await supabase.from('design_videos').delete().eq('id', id);
+    if (error) {
+      alert(`Gagal menghapus: ${error.message}`);
+      return;
+    }
+    setItems(prev => prev.filter(i => i.id !== id));
+  }
 
   if (loading) return <p className="text-sm text-[var(--text-secondary)]">Loading…</p>;
 
