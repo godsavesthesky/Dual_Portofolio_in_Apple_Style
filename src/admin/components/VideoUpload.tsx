@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Upload, Loader2, X, Film } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, X, Film } from 'lucide-react';
 import { uploadVideo } from '../../lib/storage';
 
 interface VideoUploadProps {
