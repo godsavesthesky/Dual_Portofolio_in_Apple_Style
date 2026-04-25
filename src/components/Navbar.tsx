@@ -51,6 +51,7 @@ export default function Navbar({ activeSection, onNavigate, onConnectClick, them
             </button>
             <button
               onClick={() => setMenuOpen(v => !v)}
+              data-tour="navbar-menu"
               className="w-8 h-8 rounded-full glass flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             >
               {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
