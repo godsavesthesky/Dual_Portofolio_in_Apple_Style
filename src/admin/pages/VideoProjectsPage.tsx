@@ -88,13 +88,22 @@ export default function VideoProjectsPage() {
   }
 
   async function update(id: string, field: string, value: any) {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    await supabase.from('video_projects').update({ [field]: value }).eq('id', id);
+    const prev = projects;
+    setProjects(projects.map(p => p.id === id ? { ...p, [field]: value } : p));
+    const { error } = await supabase.from('video_projects').update({ [field]: value }).eq('id', id);
+    if (error) {
+      alert(`Gagal menyimpan: ${error.message}`);
+      setProjects(prev);
+    }
   }
 
   async function remove(id: string) {
     if (!confirm('Hapus folder video ini beserta semua videonya?')) return;
-    await supabase.from('video_projects').delete().eq('id', id);
+    const { error } = await supabase.from('video_projects').delete().eq('id', id);
+    if (error) {
+      alert(`Gagal menghapus: ${error.message}`);
+      return;
+    }
     setProjects(prev => prev.filter(p => p.id !== id));
     setVideoItems(prev => { const n = { ...prev }; delete n[id]; return n; });
   }
