@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface MacGalleryProps {
@@ -20,9 +20,32 @@ export default function MacGallery({ photos, title, pptLabel, onPptClick }: MacG
   };
 
   const openLightbox = (i: number) => setLightbox(i);
-  const closeLightbox = () => setLightbox(null);
-  const prevPhoto = () => setLightbox(i => (i !== null ? (i - 1 + photos.length) % photos.length : null));
-  const nextPhoto = () => setLightbox(i => (i !== null ? (i + 1) % photos.length : null));
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+  const prevPhoto = useCallback(
+    () => setLightbox(i => (i !== null ? (i - 1 + photos.length) % photos.length : null)),
+    [photos.length]
+  );
+  const nextPhoto = useCallback(
+    () => setLightbox(i => (i !== null ? (i + 1) % photos.length : null)),
+    [photos.length]
+  );
+
+  // Keyboard navigation + body scroll lock while lightbox is open
+  useEffect(() => {
+    if (lightbox === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft' && photos.length > 1) prevPhoto();
+      else if (e.key === 'ArrowRight' && photos.length > 1) nextPhoto();
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [lightbox, photos.length, closeLightbox, prevPhoto, nextPhoto]);
 
   if (!photos || photos.length === 0) return null;
 
