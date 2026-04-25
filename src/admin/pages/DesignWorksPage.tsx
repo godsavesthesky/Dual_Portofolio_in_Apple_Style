@@ -53,13 +53,22 @@ export default function DesignWorksPage() {
   }
 
   async function update(id: string, field: string, value: any) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
-    await supabase.from('design_works').update({ [field]: value }).eq('id', id);
+    const prev = items;
+    setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
+    const { error } = await supabase.from('design_works').update({ [field]: value }).eq('id', id);
+    if (error) {
+      alert(`Gagal menyimpan: ${error.message}`);
+      setItems(prev);
+    }
   }
 
   async function remove(id: string) {
     if (!confirm('Hapus item ini?')) return;
-    await supabase.from('design_works').delete().eq('id', id);
+    const { error } = await supabase.from('design_works').delete().eq('id', id);
+    if (error) {
+      alert(`Gagal menghapus: ${error.message}`);
+      return;
+    }
     setItems(prev => prev.filter(i => i.id !== id));
   }
 
