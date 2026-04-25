@@ -19,6 +19,7 @@ export interface Category {
   id: string;
   name: string;
   type: 'design_work' | 'arch_work' | 'zine' | 'drawing';
+  display_order?: number;
   created_at: string;
 }
 
