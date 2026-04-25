@@ -80,8 +80,11 @@ export default function CVDownloadsPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `cv-downloads-${Date.now()}.csv`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    // Some browsers cancel the download if we revoke too soon.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const badge = (type: string | null) =>
