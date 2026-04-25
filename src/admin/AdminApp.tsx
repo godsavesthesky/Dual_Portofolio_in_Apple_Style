@@ -15,6 +15,7 @@ import ArchWorksPage from './pages/ArchWorksPage';
 import DrawingsPage from './pages/DrawingsPage';
 import ArchVideosPage from './pages/ArchVideosPage';
 import VideoProjectsPage from './pages/VideoProjectsPage';
+import PortfolioPDFPage from './pages/PortfolioPDFPage';
 
 export default function AdminApp() {
   const { session, isAdmin, loading } = useAuth();
@@ -66,6 +67,8 @@ export default function AdminApp() {
   return (
     <Routes>
       <Route path="/login" element={<Navigate to="/admin/profile" replace />} />
+      {/* Standalone full-page route — no AdminLayout, so toolbar/sidebar don't intrude */}
+      <Route path="portfolio-pdf" element={<PortfolioPDFPage />} />
       <Route element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/profile" replace />} />
         <Route path="profile" element={<ProfilePage />} />
