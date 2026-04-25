@@ -13,6 +13,7 @@ interface Work {
   description: string | null;
   photo_url: string | null;
   photos: string[];
+  featured?: boolean;
   created_at: string;
 }
 
@@ -166,6 +167,15 @@ export default function DesignWorksPage() {
                     placeholder="Ceritain projectnya..."
                   />
                 </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-[var(--text-primary)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.featured ?? false}
+                    onChange={e => update(item.id, 'featured', e.target.checked)}
+                    className="w-4 h-4 rounded accent-[var(--accent)]"
+                  />
+                  <span>⭐ Featured (masuk ke PDF portfolio)</span>
+                </label>
               </div>
               <div className="space-y-4">
                 <ImageUpload url={item.photo_url} onChange={url => update(item.id, 'photo_url', url)} folder="design-works" label="Cover Image" />
