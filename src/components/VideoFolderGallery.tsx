@@ -48,8 +48,13 @@ function VideoModal({
       if (e.key === 'ArrowLeft') prev();
       if (e.key === 'ArrowRight') next();
     };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [onClose, prev, next]);
 
   // Reset + play saat ganti video
@@ -135,7 +140,7 @@ function VideoModal({
                   {v.thumbnail_url ? (
                     <img src={v.thumbnail_url} alt={v.title} className="w-full h-full object-cover" />
                   ) : (
-                    <video src={v.video_url!} className="w-full h-full object-cover pointer-events-none" muted />
+                    <video src={v.video_url!} className="w-full h-full object-cover pointer-events-none" muted preload="metadata" />
                   )}
                 </button>
               ))}
@@ -194,6 +199,7 @@ function FolderCard({ project, onClick }: { project: VideoProject; onClick: () =
                     className="w-full h-full object-cover pointer-events-none"
                     muted
                     playsInline
+                    preload="metadata"
                   />
                 )}
               </div>
