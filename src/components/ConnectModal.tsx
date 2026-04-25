@@ -18,10 +18,11 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const reset = () => {
     setName(''); setEmail(''); setSubject(''); setMessage('');
-    setError(null); setSent(false); setSubmitting(false);
+    setError(null); setInfo(null); setSent(false); setSubmitting(false);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -29,6 +30,7 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
 
     const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID as string | undefined;
     const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string | undefined;
@@ -43,7 +45,11 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
           `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
           '_blank'
         );
-        setSent(true);
+        // Don't setSent(true) — we can't know if the user actually sent from
+        // their mail client. Show an info banner instead of a fake success.
+        setInfo(
+          `Mail client kamu sudah dibuka. Lanjut kirim dari sana, atau email langsung ke ${to}.`
+        );
       } else {
         setError('Email service is not configured yet. Please contact the site owner directly.');
       }
@@ -159,6 +165,10 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
 
               {error && (
                 <p className="text-xs text-red-500 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
+              )}
+
+              {info && (
+                <p className="text-xs text-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 rounded-lg">{info}</p>
               )}
 
               <button
