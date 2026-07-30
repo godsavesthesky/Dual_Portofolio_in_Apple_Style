@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   PenTool, Palette, Type, Brush, Printer, Package, Heart,
   X, ChevronLeft, ChevronRight, MoreHorizontal, Search, PlusSquare, User,
-  MessageCircle, Send, Bookmark, Home as HomeIcon, Film, Camera,
+  MessageCircle, Send, Bookmark, Home as HomeIcon, Film,
 } from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { supabase } from '../lib/supabase';
 import type { DesignWork, Category } from '../lib/types';
-import MacPhotoGallery from '../components/MacPhotoGallery';
 
 /* ─────────────────────────────────────────────────────
    Predefined main categories (dengan icon & presentation default)
@@ -21,10 +20,9 @@ const PREDEFINED_CATEGORIES = [
   { key: 'fanart', label: 'Fanart', icon: Heart, match: ['fanart', 'fan art'] },
   { key: 'print', label: 'Print Design', icon: Printer, match: ['print'] },
   { key: 'packaging', label: 'Packaging', icon: Package, match: ['packaging', 'kemasan'] },
-  { key: 'photography', label: 'Photography', icon: Camera, match: ['photograph', 'photography', 'foto'] },
 ] as const;
 
-type PresentationType = 'phone' | 'grid' | 'gallery' | 'photo-folder';
+type PresentationType = 'phone' | 'grid' | 'gallery';
 
 interface ResolvedCategory {
   key: string;           // unique key untuk filter tab
@@ -47,7 +45,6 @@ function matchPredefined(name: string) {
 function pickPresentation(predefKey: string | null, name: string): PresentationType {
   if (predefKey === 'social-media') return 'phone';
   if (predefKey === 'logo-brand') return 'grid';
-  if (predefKey === 'photography') return 'photo-folder';
   // Default untuk Fanart, Illustration, Print, Packaging, atau kategori custom apa pun
   return 'gallery';
   void name;
@@ -351,13 +348,9 @@ export default function DesignWorks() {
                       {String(works.length).padStart(2, '0')}
                     </span>
                   </div>
-                  {bucket.presentation === 'photo-folder' ? (
-                    <MacPhotoGallery entries={works} windowTitle={bucket.label} />
-                  ) : (
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {works.map(renderCard)}
-                    </div>
-                  )}
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {works.map(renderCard)}
+                  </div>
                 </div>
               ))}
 
@@ -381,9 +374,6 @@ export default function DesignWorks() {
                 </div>
               )}
             </div>
-          ) : activeBucket?.presentation === 'photo-folder' ? (
-            /* ─── Photography: folder ala macOS ─── */
-            <MacPhotoGallery entries={filtered} windowTitle={activeBucket.label} />
           ) : (
             /* ─── Flat grid (kategori ter-filter / sub-filter aktif) ─── */
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
