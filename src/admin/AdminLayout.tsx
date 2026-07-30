@@ -4,6 +4,7 @@ import {
   PenTool,
   Film,
   BookOpen,
+  Camera,
   Building,
   Ruler,
   Video,
@@ -38,6 +39,7 @@ const navGroups = [
       { to: '/admin/design-works', label: 'Design Works', icon: PenTool },
       { to: '/admin/design-videos', label: 'Design Videos', icon: Film },
       { to: '/admin/zines', label: 'Zines', icon: BookOpen },
+      { to: '/admin/photography', label: 'Photography', icon: Camera },
     ],
   },
   {

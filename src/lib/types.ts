@@ -63,6 +63,18 @@ export interface Zine {
   created_at: string;
 }
 
+export interface Photography {
+  id: string;
+  title: string;
+  year: number | null;
+  location: string | null;
+  camera: string | null;
+  cover_url: string | null;
+  photos: string[] | null;
+  description: string | null;
+  created_at: string;
+}
+
 /* ─── ARCHITECTURE SIDE ─── */
 
 export interface ArchWork {

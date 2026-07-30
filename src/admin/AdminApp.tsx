@@ -11,6 +11,7 @@ import CVDownloadsPage from './pages/CVDownloadsPage';
 import DesignWorksPage from './pages/DesignWorksPage';
 import DesignVideosPage from './pages/DesignVideosPage';
 import ZinesPage from './pages/ZinesPage';
+import PhotographyPage from './pages/PhotographyPage';
 import ArchWorksPage from './pages/ArchWorksPage';
 import DrawingsPage from './pages/DrawingsPage';
 import ArchVideosPage from './pages/ArchVideosPage';
@@ -79,6 +80,7 @@ export default function AdminApp() {
         <Route path="design-videos" element={<DesignVideosPage />} />
         <Route path="video-projects" element={<VideoProjectsPage />} />
         <Route path="zines" element={<ZinesPage />} />
+        <Route path="photography" element={<PhotographyPage />} />
         <Route path="arch-works" element={<ArchWorksPage />} />
         <Route path="drawings" element={<DrawingsPage />} />
         <Route path="arch-videos" element={<ArchVideosPage />} />

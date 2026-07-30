@@ -15,13 +15,14 @@ import ExperienceSection from './sections/Experience';
 import DesignWorks from './sections/DesignWorks';
 import DesignVideos from './sections/DesignVideos';
 import Zines from './sections/Zines';
+import Photography from './sections/Photography';
 
 // Architecture side
 import ArchWorks from './sections/ArchWorks';
 import ArchDrawings from './sections/ArchDrawings';
 import ArchVideos from './sections/ArchVideos';
 
-const DESIGN_SECTIONS = ['home', 'works', 'videos', 'zines', 'about', 'experience'];
+const DESIGN_SECTIONS = ['home', 'works', 'videos', 'zines', 'photography', 'about', 'experience'];
 const ARCH_SECTIONS   = ['home', 'works', 'drawings', 'arch-videos', 'about', 'experience'];
 
 export default function PublicSite() {
@@ -83,6 +84,7 @@ export default function PublicSite() {
               <DesignWorks />
               <DesignVideos />
               <Zines />
+              <Photography />
             </>
           ) : (
             <>

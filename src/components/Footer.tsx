@@ -30,6 +30,7 @@ const designLinks = [
   { id: 'works', label: 'Works' },
   { id: 'videos', label: 'Videos' },
   { id: 'zines', label: 'Zines' },
+  { id: 'photography', label: 'Photography' },
   { id: 'about', label: 'About' },
   { id: 'experience', label: 'Experience' },
 ];
